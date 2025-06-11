@@ -4,13 +4,15 @@ import os
 import shutil
 from typing import List
 import streamlit as st
+import hashlib
 
 from dotenv import load_dotenv
 import chromadb
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader  
 from langchain_community.vectorstores import Chroma
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
+from langchain.docstore.document import Document
 
 # --- Constants ---
 DEFAULT_DOCS_DIR    = "docs"
@@ -22,14 +24,26 @@ CHUNK_OVERLAP       = 800
 # Load your .env (must contain OPENAI_API_KEY)
 load_dotenv()
 
-def extract_pdf_text(
-    pdf_filenames: List[str],
-    docs_dir: str = DEFAULT_DOCS_DIR
-):
+def has_new_files(persist_dir: str, current_files: List[str]) -> bool:
+    cache_path = os.path.join(persist_dir, "files.txt")
+    if not os.path.exists(cache_path):
+        return True
+    with open(cache_path, "r", encoding="utf-8") as f:
+        cached_files = set(line.strip() for line in f.readlines())
+    return set(current_files) != cached_files
+
+def extract_text(file_list: List[str], docs_dir: str = DEFAULT_DOCS_DIR):
     docs = []
-    for fn in pdf_filenames:
+    for fn in file_list:
         path = os.path.join(docs_dir, fn)
-        docs.extend(PyPDFLoader(path).load())
+        if fn.lower().endswith(".pdf"):
+            docs.extend(PyPDFLoader(path).load())
+        elif fn.lower().endswith(".txt"):
+            docs.extend(TextLoader(path, encoding="utf-8").load())
+        elif fn.lower().endswith(".docx"):
+            docs.extend(Docx2txtLoader(path).load())
+        else:
+            print(f"⚠️ Skipping unsupported file: {fn}")
     return docs
 
 def get_text_chunks(
@@ -44,9 +58,8 @@ def get_text_chunks(
     )
     return splitter.split_documents(docs)
 
-def save_pdf_chunks(
-    pdf_filenames: List[str],
-    docs_dir: str = DEFAULT_DOCS_DIR,
+def save_text_chunks(
+    chunks,
     chunks_dir: str = DEFAULT_CHUNKS_DIR,
     overwrite: bool = True
 ) -> None:
@@ -54,55 +67,79 @@ def save_pdf_chunks(
         shutil.rmtree(chunks_dir)
     os.makedirs(chunks_dir, exist_ok=True)
 
-    docs   = extract_pdf_text(pdf_filenames, docs_dir)
-    chunks = get_text_chunks(docs)
-
     for i, chunk in enumerate(chunks):
-        src   = chunk.metadata.get("source", "")
-        base  = os.path.splitext(os.path.basename(src))[0] if src else "doc"
+        src = chunk.metadata.get("source", "")
+        base = os.path.splitext(os.path.basename(src))[0] if src else "doc"
         fname = f"{base}_chunk_{i:04d}.txt"
-        path  = os.path.join(chunks_dir, fname)
+        path = os.path.join(chunks_dir, fname)
         with open(path, "w", encoding="utf-8") as f:
             f.write(chunk.page_content)
 
     print(f"✅ Exported {len(chunks)} chunks to '{chunks_dir}/'")
+    
+def hash_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 def get_vectorstore(
-    pdf_filenames: List[str],
-    from_session_state: bool = False
+    file_list: List[str],
+    docs_dir: str = DEFAULT_DOCS_DIR,
+    persist_dir: str = DEFAULT_PERSIST_DIR,
+    chunks_dir: str = DEFAULT_CHUNKS_DIR
 ) -> Chroma:
     """
-    Create or load a Chroma vectorstore for the given PDFs,
-    and always export the text chunks to disk.
+    Incrementally update a Chroma vectorstore by embedding only new files.
     """
-    # 1) Prepare OpenAI embeddings
     embedding = OpenAIEmbeddings(
         model="text-embedding-3-small",
         openai_api_key=st.secrets["OPENAI_API_KEY"]
     )
 
-    # 2) Try loading existing store
-    vectordb = None
-    if from_session_state and os.path.isdir(DEFAULT_PERSIST_DIR):
-        try:
-            vectordb = Chroma(
-                persist_directory=DEFAULT_PERSIST_DIR,
-                embedding_function=embedding,
-            )
-        except chromadb.errors.InvalidArgumentError:
-            shutil.rmtree(DEFAULT_PERSIST_DIR)
+    # Load or create vectorstore
+    vectordb = Chroma(
+        persist_directory=persist_dir,
+        embedding_function=embedding
+    )
 
-    # 3) Build from scratch if needed
-    if vectordb is None:
-        docs = extract_pdf_text(pdf_filenames)
-        chunks = get_text_chunks(docs)
-        vectordb = Chroma.from_documents(
-            documents=chunks,
-            embedding=embedding,
-            persist_directory=DEFAULT_PERSIST_DIR
-        )
+    # Load previously embedded file list
+    cache_path = os.path.join(persist_dir, "files.txt")
+    prev_files = set()
+    if os.path.exists(cache_path):
+        with open(cache_path, "r", encoding="utf-8") as f:
+            prev_files = set(line.strip() for line in f)
 
-    # 4) Export chunks on every call
-    save_pdf_chunks(pdf_filenames)
+    # Filter new files
+    new_files = [f for f in file_list if f not in prev_files]
+    if not new_files:
+        print("✅ No new files to add.")
+        return vectordb
+
+    print(f"🆕 New files to process: {new_files}")
+    docs = extract_text(new_files, docs_dir)
+    chunks = get_text_chunks(docs)
+
+    # Deduplicate by chunk content hash
+    seen_hashes = set()
+    unique_chunks: List[Document] = []
+    for chunk in chunks:
+        content_hash = hash_text(chunk.page_content)
+        if content_hash not in seen_hashes:
+            seen_hashes.add(content_hash)
+            unique_chunks.append(chunk)
+
+    # Add only unique chunks
+    if unique_chunks:
+        vectordb.add_documents(unique_chunks)
+        vectordb.persist()
+        print(f"✅ Added {len(unique_chunks)} unique chunks.")
+    else:
+        print("⚠️ No unique chunks to embed — skipping update.")
+
+    # Append new files to file cache
+    with open(cache_path, "a", encoding="utf-8") as f:
+        for fname in new_files:
+            f.write(fname + "\n")
+
+    # Save new chunks for inspection
+    save_text_chunks(unique_chunks, chunks_dir=chunks_dir, overwrite=False)
 
     return vectordb

@@ -1,17 +1,41 @@
+# utils/save_urls.py
+
 import os
 import re
-import io
 import requests
 import streamlit as st
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from typing import List, Tuple
 
+
 def slugify(text: str) -> str:
     """Generate a filesystem-safe slug from the given text."""
     slug = text.lower().strip()
     slug = re.sub(r'[^a-z0-9]+', '_', slug)
     return slug.strip('_')
+
+
+def extract_all_visible_text(html: bytes) -> str:
+    """
+    Extracts all visible text from an HTML document,
+    excluding scripts, styles, and other non-content elements.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Remove non-content elements
+    for tag in soup(["script", "style", "noscript", "meta", "iframe"]):
+        tag.decompose()
+
+    # Extract text
+    raw_text = soup.get_text(separator="\n")
+
+    # Normalize whitespace
+    lines = [line.strip() for line in raw_text.splitlines()]
+    lines = [line for line in lines if line]
+
+    return "\n\n".join(lines)
+
 
 def save_url_to_vectordb(
     url: str,
@@ -26,7 +50,7 @@ def save_url_to_vectordb(
       (filename, file_type) where file_type is "pdf" or "html".
       If nothing was written (already exists or error), filename == "".
     """
-    # 1) Fetch
+    # 1) Fetch the URL content
     try:
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
@@ -34,14 +58,14 @@ def save_url_to_vectordb(
         st.error(f"❌ Failed to fetch {url}: {e}")
         return "", ""
 
-    # 2) Ensure docs directory
+    # 2) Ensure docs directory exists
     os.makedirs(docs_dir, exist_ok=True)
 
-    # 3) Build a safe base name
+    # 3) Generate a safe base filename
     parsed = urlparse(url)
     base = slugify(parsed.netloc + parsed.path)
 
-    # 4) Decide PDF vs HTML
+    # 4) Determine content type
     ctype = resp.headers.get("Content-Type", "").lower()
     is_pdf = url.lower().endswith(".pdf") or "application/pdf" in ctype
 
@@ -55,12 +79,10 @@ def save_url_to_vectordb(
         st.success(f"✅ Saved PDF to `{path}`")
         return fname, "pdf"
 
-    # --- HTML branch ---
-    soup = BeautifulSoup(resp.content, "html.parser")
-    paras = [p.get_text().strip() for p in soup.find_all("p") if p.get_text().strip()]
-    text = "\n\n".join(paras)
+    # --- HTML content branch ---
+    text = extract_all_visible_text(resp.content)
     if not text:
-        st.warning(f"⚠️ No textual content at {url}")
+        st.warning(f"⚠️ No textual content found at {url}")
         return "", "html"
 
     fname = f"{base}.txt"

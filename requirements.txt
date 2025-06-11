@@ -3,6 +3,7 @@ pypdf
 python-dotenv
 openai
 langchain_community
+langchain_openai
 langchain
 chromadb
 bs4
