@@ -52,7 +52,11 @@ def save_url_to_vectordb(
     """
     # 1) Fetch the URL content
     try:
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; TNTBot/1.0)"},
+            timeout=10
+        )
         resp.raise_for_status()
     except Exception as e:
         st.error(f"❌ Failed to fetch {url}: {e}")

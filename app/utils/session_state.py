@@ -11,3 +11,5 @@ def initialize_session_state_variables(st):
         st.session_state.vectordb = None
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
+    if "url_inputs" not in st.session_state:
+        st.session_state.url_inputs = [""]

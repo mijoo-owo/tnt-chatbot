@@ -8,7 +8,12 @@ import hashlib
 
 from dotenv import load_dotenv
 import chromadb
-from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader  
+from langchain_community.document_loaders import (
+    PyPDFLoader,
+    TextLoader,
+    Docx2txtLoader,
+    UnstructuredWordDocumentLoader
+)
 from langchain_community.vectorstores import Chroma
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
@@ -36,14 +41,19 @@ def extract_text(file_list: List[str], docs_dir: str = DEFAULT_DOCS_DIR):
     docs = []
     for fn in file_list:
         path = os.path.join(docs_dir, fn)
-        if fn.lower().endswith(".pdf"):
-            docs.extend(PyPDFLoader(path).load())
-        elif fn.lower().endswith(".txt"):
-            docs.extend(TextLoader(path, encoding="utf-8").load())
-        elif fn.lower().endswith(".docx"):
-            docs.extend(Docx2txtLoader(path).load())
-        else:
-            print(f"⚠️ Skipping unsupported file: {fn}")
+        try:
+            if fn.lower().endswith(".pdf"):
+                docs.extend(PyPDFLoader(path).load())
+            elif fn.lower().endswith(".txt"):
+                docs.extend(TextLoader(path, encoding="utf-8").load())
+            elif fn.lower().endswith(".docx"):
+                docs.extend(Docx2txtLoader(path).load())
+            elif fn.lower().endswith(".doc"):
+                docs.extend(UnstructuredWordDocumentLoader(path).load())
+            else:
+                st.warning(f"⚠️ Unsupported file type: {fn}")
+        except Exception as e:
+            st.error(f"❌ Failed to process {fn}: {e}")
     return docs
 
 def get_text_chunks(

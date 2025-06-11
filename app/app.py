@@ -7,7 +7,7 @@ import shutil
 from utils.save_docs import save_docs_to_vectordb
 from utils.save_urls import save_url_to_vectordb
 from utils.session_state import initialize_session_state_variables
-from utils.prepare_vectordb import get_vectorstore, save_text_chunks
+from utils.prepare_vectordb import get_vectorstore
 from utils.chatbot import chat
 
 class ChatApp:
@@ -51,7 +51,7 @@ class ChatApp:
     def run(self):
         upload_docs = os.listdir("docs")
 
-        # Sidebar: upload PDFs or URLs
+        # Sidebar: upload & URL
         with st.sidebar:
             st.subheader("Your documents")
             if upload_docs:
@@ -59,10 +59,10 @@ class ChatApp:
             else:
                 st.info("No documents uploaded yet.")
 
-            # PDF Upload
-            st.subheader("Upload PDF documents")
+            # --- Upload documents ---
+            st.subheader("Upload documents")
             uploaded_docs = st.file_uploader(
-                "Upload documents (.pdf, .txt, .doc, .docx)",
+                "Upload (.pdf, .txt, .doc, .docx)",
                 type=["pdf", "txt", "doc", "docx"],
                 accept_multiple_files=True
             )
@@ -72,20 +72,16 @@ class ChatApp:
                     st.session_state.uploaded_pdfs += new_files
                     st.success(f"Saved files: {', '.join(new_files)}")
 
-            # URL Processing
-            st.subheader("Or enter a website URL")
-            
-            # --- Initialize session state ---
+            # --- URL Inputs ---
+            st.subheader("Or enter website URLs")
+
             if "url_inputs" not in st.session_state:
                 st.session_state.url_inputs = [""]
 
-            # --- Add another URL field ---
             if st.button("Add another URL"):
                 st.session_state.url_inputs.append("")
-                st.rerun()
 
-            # --- Display URL input fields ---
-            new_url_inputs = []
+            updated_inputs = []
             url_container = st.container()
 
             for i, url in enumerate(st.session_state.url_inputs):
@@ -94,15 +90,13 @@ class ChatApp:
                     updated_url = cols[0].text_input(f"URL #{i+1}", value=url, key=f"url_input_{i}")
                 with cols[1]:
                     if cols[1].button("❌", key=f"remove_url_{i}"):
-                        # Remove the URL and trigger immediate rerun
                         st.session_state.url_inputs.pop(i)
                         st.rerun()
-                new_url_inputs.append(updated_url)
+                updated_inputs.append(updated_url)
 
-            st.session_state.url_inputs = new_url_inputs
+            st.session_state.url_inputs[:] = updated_inputs
 
-            # --- Process URLs ---
-            if st.button("Process URLs"):
+            if st.button("🌐 Process URLs"):
                 current_docs = os.listdir("docs")
                 for url in st.session_state.url_inputs:
                     url = url.strip()
@@ -115,22 +109,19 @@ class ChatApp:
                                 st.session_state.uploaded_urls.append(fname)
                 st.success("✅ All valid URLs processed.")
 
-        # Rebuild vectorstore if new files (PDFs or URLs) were added
+        # --- Vectorstore update ---
         upload_docs = os.listdir("docs")
         combined_uploaded_files = st.session_state.uploaded_pdfs + st.session_state.uploaded_urls
 
         if len(combined_uploaded_files) > st.session_state.previous_upload_docs_length:
             try:
-                st.session_state.vectordb = get_vectorstore(
-                    st.session_state.uploaded_pdfs + st.session_state.uploaded_urls
-                )
+                st.session_state.vectordb = get_vectorstore(combined_uploaded_files)
                 st.success("✅ Vectorstore updated with all uploaded documents.")
                 st.session_state.previous_upload_docs_length = len(combined_uploaded_files)
-
             except Exception as e:
                 st.error(f"Error loading vector store or saving chunks: {e}")
 
-        # Always show the chat interface
+        # --- Chat Interface ---
         st.session_state.chat_history = chat(
             st.session_state.chat_history,
             st.session_state.vectordb

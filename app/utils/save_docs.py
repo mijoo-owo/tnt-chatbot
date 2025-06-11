@@ -2,7 +2,6 @@
 
 import streamlit as st
 import os
-from utils.prepare_vectordb import get_vectorstore
 
 def save_docs_to_vectordb(uploaded_docs, upload_docs):
     """
@@ -27,12 +26,6 @@ def save_docs_to_vectordb(uploaded_docs, upload_docs):
 
         # Update session state
         st.session_state.uploaded_pdfs = upload_docs + new_file_names
-
-        # Process all current files (not just new ones)
-        with st.spinner("Processing..."):
-            get_vectorstore(st.session_state.uploaded_pdfs)
-            st.success(f"Uploaded and processed: {', '.join(new_file_names)}")
-
         return new_file_names
 
     return []
