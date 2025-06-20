@@ -1,31 +1,34 @@
-# utils/save_docs.py
-
 import streamlit as st
 import os
 
-def save_docs_to_vectordb(uploaded_docs, upload_docs):
+def save_docs_to_vectordb(uploaded_docs, existing_docs):
     """
-    Save uploaded documents (PDF, TXT, DOC, DOCX) to 'docs/' and update the vectorstore.
+    Save newly uploaded documents to 'docs/' and return the list of newly added filenames.
 
     Parameters:
-    - uploaded_docs (list): List of uploaded documents from Streamlit uploader
-    - upload_docs (list): Names of already-uploaded documents in session state
+    - uploaded_docs (list): Files uploaded through Streamlit uploader.
+    - existing_docs (list): Filenames already in the 'docs/' folder (used to avoid duplicates).
+
+    Returns:
+    - List of newly saved filenames.
     """
-    # Identify newly uploaded files
-    new_files = [doc for doc in uploaded_docs if doc.name not in upload_docs]
+
+    # Filter out already existing files by name
+    new_files = [doc for doc in uploaded_docs if doc.name not in existing_docs]
     new_file_names = [doc.name for doc in new_files]
 
     if new_files and st.button("Process"):
         os.makedirs("docs", exist_ok=True)
 
-        # Save to 'docs' directory
         for doc in new_files:
             file_path = os.path.join("docs", doc.name)
-            with open(file_path, "wb") as f:
-                f.write(doc.getvalue())
+            try:
+                with open(file_path, "wb") as f:
+                    f.write(doc.getvalue())
+                st.success(f"✅ Saved: {doc.name}")
+            except Exception as e:
+                st.error(f"❌ Failed to save {doc.name}: {e}")
 
-        # Update session state
-        st.session_state.uploaded_pdfs = upload_docs + new_file_names
         return new_file_names
 
     return []

@@ -100,7 +100,7 @@ def get_vectorstore(
     Incrementally update a Chroma vectorstore by embedding only new files.
     """
     embedding = OpenAIEmbeddings(
-        model="text-embedding-3-small",
+        model="text-embedding-3-large",
         openai_api_key=st.secrets["OPENAI_API_KEY"]
     )
 

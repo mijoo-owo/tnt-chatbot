@@ -18,7 +18,7 @@ def get_context_retriever_chain(vectordb):
     # Use OpenAI's GPT-4o-mini via LangChain wrapper
     llm = ChatOpenAI(
         model="gpt-4o-mini",
-        temperature=0.2,
+        temperature=0.1,
         openai_api_key=st.secrets["OPENAI_API_KEY"]
     )
 
@@ -57,25 +57,25 @@ def chat(chat_history, vectordb):
             AIMessage(content=response)
         ]
 
-        # Show sources in sidebar, robustly handling missing 'page'
-        with st.sidebar:
-            metadata_dict = defaultdict(list)
-            if context:
-                for doc in context:
-                    meta = doc.metadata
-                    src = meta.get('source', 'unknown source')
-                    pg  = meta.get('page')
-                    # only record pages if present and truthy
-                    if pg is not None:
-                        metadata_dict[src].append(pg)
-                if metadata_dict:
-                    for source, pages in metadata_dict.items():
-                        st.write(f"**Source:** {source}")
-                        st.write(f"Pages: {', '.join(map(str, pages))}")
-                else:
-                    st.write("No page metadata available for these sources.")
-            else:
-                st.write("No context found for this answer.")
+        # # Show sources in sidebar, robustly handling missing 'page'
+        # with st.sidebar:
+        #     metadata_dict = defaultdict(list)
+        #     if context:
+        #         for doc in context:
+        #             meta = doc.metadata
+        #             src = meta.get('source', 'unknown source')
+        #             pg  = meta.get('page')
+        #             # only record pages if present and truthy
+        #             if pg is not None:
+        #                 metadata_dict[src].append(pg)
+        #         if metadata_dict:
+        #             for source, pages in metadata_dict.items():
+        #                 st.write(f"**Source:** {source}")
+        #                 st.write(f"Pages: {', '.join(map(str, pages))}")
+        #         else:
+        #             st.write("No page metadata available for these sources.")
+        #     else:
+        #         st.write("No context found for this answer.")
 
     # Display chat messages
     for message in chat_history:
