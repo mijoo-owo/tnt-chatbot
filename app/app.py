@@ -95,8 +95,8 @@ class ChatApp:
         with st.sidebar:
             st.subheader("Upload documents")
             uploaded_docs = st.file_uploader(
-                "Upload (.pdf, .txt, .doc, .docx)",
-                type=["pdf", "txt", "doc", "docx"],
+                "Upload (.pdf, .txt, .doc, .docx, .xls, .xlsx)",
+                type=["pdf", "txt", "doc", "docx", "xls", "xlsx"],
                 accept_multiple_files=True
             )
 

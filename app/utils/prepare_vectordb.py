@@ -5,6 +5,10 @@ import shutil
 from typing import List
 import streamlit as st
 import hashlib
+import pandas as pd
+import re
+import fitz  # PyMuPDF for PDF image extraction
+from paddleocr import PaddleOCR
 
 from dotenv import load_dotenv
 import chromadb
@@ -37,19 +41,95 @@ def has_new_files(persist_dir: str, current_files: List[str]) -> bool:
         cached_files = set(line.strip() for line in f.readlines())
     return set(current_files) != cached_files
 
+def is_gibberish(text, threshold=0.3):
+    if not text:
+        return True
+    alnum = sum(c.isalnum() for c in text)
+    ratio = alnum / max(len(text), 1)
+    return ratio < threshold
+
+def ocr_pdf_with_paddleocr(pdf_path, lang='vi'):  # Vietnamese support
+    ocr = PaddleOCR(lang=lang, use_angle_cls=True, show_log=False)
+    doc = fitz.open(pdf_path)
+    all_text = []
+    for page_num in range(len(doc)):
+        page = doc.load_page(page_num)
+        images = page.get_images(full=True)
+        page_text = []
+        for img_index, img in enumerate(images):
+            xref = img[0]
+            base_image = doc.extract_image(xref)
+            image_bytes = base_image["image"]
+            import numpy as np
+            import cv2
+            img_array = np.frombuffer(image_bytes, np.uint8)
+            img_cv = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            if img_cv is not None:
+                result = ocr.ocr(img_cv, cls=True)
+                for line in result:
+                    for box in line:
+                        text = box[1][0]
+                        page_text.append(text)
+        # If no images, try to render the page as an image and OCR it
+        if not images:
+            pix = page.get_pixmap()
+            img_cv = np.frombuffer(pix.samples, dtype=np.uint8).reshape((pix.height, pix.width, pix.n))
+            result = ocr.ocr(img_cv, cls=True)
+            for line in result:
+                for box in line:
+                    text = box[1][0]
+                    page_text.append(text)
+        if page_text:
+            all_text.append(f"Page {page_num+1}:\n" + "\n".join(page_text))
+    doc.close()
+    if all_text:
+        return [Document(page_content="\n\n".join(all_text), metadata={"source": pdf_path})]
+    return []
+
 def extract_text(file_list: List[str], docs_dir: str = DEFAULT_DOCS_DIR):
     docs = []
     for fn in file_list:
         path = os.path.join(docs_dir, fn)
         try:
             if fn.lower().endswith(".pdf"):
-                docs.extend(PyPDFLoader(path).load())
+                loaded = PyPDFLoader(path).load()
+                all_text = " ".join(doc.page_content for doc in loaded)
+                if not loaded or is_gibberish(all_text):
+                    st.warning(f"⚠️ Falling back to PaddleOCR for: {fn}")
+                    try:
+                        ocr_loaded = ocr_pdf_with_paddleocr(path, lang='vi')
+                        docs.extend(ocr_loaded)
+                    except Exception as ocr_e:
+                        st.error(f"❌ PaddleOCR failed for {fn}: {ocr_e}")
+                else:
+                    docs.extend(loaded)
             elif fn.lower().endswith(".txt"):
                 docs.extend(TextLoader(path, encoding="utf-8").load())
             elif fn.lower().endswith(".docx"):
                 docs.extend(Docx2txtLoader(path).load())
             elif fn.lower().endswith(".doc"):
                 docs.extend(UnstructuredWordDocumentLoader(path).load())
+            elif fn.lower().endswith(".xls") or fn.lower().endswith(".xlsx"):
+                # Excel support for both .xls and .xlsx, with engine selection
+                try:
+                    if fn.lower().endswith(".xls"):
+                        df = pd.read_excel(path, sheet_name=None, engine="xlrd")
+                    else:
+                        df = pd.read_excel(path, sheet_name=None, engine="openpyxl")
+                except Exception as e:
+                    # Fallback to default engine if specified engine fails
+                    try:
+                        df = pd.read_excel(path, sheet_name=None)
+                    except Exception as e2:
+                        st.error(f"❌ Failed to read Excel file {fn}: {e2}")
+                        continue
+                text = ""
+                for sheet, data in df.items():
+                    text += f"Sheet: {sheet}\n"
+                    text += data.to_string(index=False)
+                    text += "\n\n"
+                if text.strip():
+                    docs.append(Document(page_content=text, metadata={"source": path}))
             else:
                 st.warning(f"⚠️ Unsupported file type: {fn}")
         except Exception as e:

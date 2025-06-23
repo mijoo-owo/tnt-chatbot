@@ -10,3 +10,12 @@ tiktoken
 python-docx
 docx2txt
 unstructured[local-inference]
+pandas
+tesseract
+pytesseract
+paddleocr
+xlrd
+openpyxl
+opencv-python
+numpy
+pymupdf
