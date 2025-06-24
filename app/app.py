@@ -5,7 +5,7 @@ import shutil
 from utils.save_docs import save_docs_to_vectordb
 from utils.save_urls import save_url_to_vectordb
 from utils.session_state import initialize_session_state_variables
-from utils.prepare_vectordb import get_vectorstore, has_new_files, DEFAULT_PERSIST_DIR
+from utils.prepare_vectordb import get_vectorstore, has_new_files, has_new_custom_chunks, DEFAULT_PERSIST_DIR, force_refresh_with_custom_chunks
 from utils.chatbot import chat
 
 class ChatApp:
@@ -50,6 +50,11 @@ class ChatApp:
         files_txt_path = "Vector_DB - Documents/files.txt"
         if os.path.exists(files_txt_path):
             os.remove(files_txt_path)
+
+        # Clear custom chunks cache
+        custom_chunks_cache_path = "Vector_DB - Documents/custom_chunks.txt"
+        if os.path.exists(custom_chunks_cache_path):
+            os.remove(custom_chunks_cache_path)
 
         st.session_state.uploaded_pdfs = []
         st.session_state.uploaded_urls = []
@@ -133,11 +138,29 @@ class ChatApp:
             if st.button("Reset", use_container_width=True):
                 self.reset_all()
 
+            st.subheader("Custom Chunks")
+            if st.button("🔄 Refresh with Custom Chunks", use_container_width=True):
+                with st.spinner("Refreshing knowledge base with custom chunks..."):
+                    try:
+                        st.session_state.vectordb = force_refresh_with_custom_chunks()
+                        st.success("✅ Knowledge base refreshed with custom chunks.")
+                    except Exception as e:
+                        st.error(f"Error refreshing vector store: {e}")
+
         # -------------------------------
         # Vectorstore and Chat
         # -------------------------------
         all_docs_in_folder = os.listdir("docs")
-        if st.session_state.vectordb is None or has_new_files(DEFAULT_PERSIST_DIR, all_docs_in_folder):
+        
+        # Check if we need to update the vector database
+        # We update if: 1) vectordb is None, 2) there are new files, or 3) we want to ensure custom chunks are included
+        should_update = (
+            st.session_state.vectordb is None or 
+            has_new_files(DEFAULT_PERSIST_DIR, all_docs_in_folder) or
+            has_new_custom_chunks(DEFAULT_PERSIST_DIR)
+        )
+        
+        if should_update:
             with st.spinner("Updating knowledge base..."):
                 try:
                     st.session_state.vectordb = get_vectorstore(all_docs_in_folder)

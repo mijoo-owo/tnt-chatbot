@@ -20,7 +20,7 @@ from langchain_community.document_loaders import (
 )
 from langchain_community.vectorstores import Chroma
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain.docstore.document import Document
 
 # --- Constants ---
@@ -170,6 +170,32 @@ def save_text_chunks(
 def hash_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
+def load_custom_chunks(chunks_dir: str = DEFAULT_CHUNKS_DIR) -> List[Document]:
+    """
+    Load custom chunks from the chunks directory and convert them to Document objects.
+    """
+    custom_chunks = []
+    
+    if not os.path.exists(chunks_dir):
+        return custom_chunks
+    
+    chunk_files = [f for f in os.listdir(chunks_dir) if f.endswith('.txt')]
+    
+    for chunk_file in chunk_files:
+        chunk_path = os.path.join(chunks_dir, chunk_file)
+        try:
+            with open(chunk_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                if content:  # Only add non-empty chunks
+                    # Create metadata with source as the chunk filename
+                    metadata = {"source": f"custom_chunk_{chunk_file}"}
+                    custom_chunks.append(Document(page_content=content, metadata=metadata))
+        except Exception as e:
+            st.warning(f"⚠️ Failed to load custom chunk {chunk_file}: {e}")
+    
+    print(f"📁 Loaded {len(custom_chunks)} custom chunks from '{chunks_dir}/'")
+    return custom_chunks
+
 def get_vectorstore(
     file_list: List[str],
     docs_dir: str = DEFAULT_DOCS_DIR,
@@ -177,7 +203,7 @@ def get_vectorstore(
     chunks_dir: str = DEFAULT_CHUNKS_DIR
 ) -> Chroma:
     """
-    Incrementally update a Chroma vectorstore by embedding only new files.
+    Incrementally update a Chroma vectorstore by embedding only new files and custom chunks.
     """
     embedding = OpenAIEmbeddings(
         model="text-embedding-3-large",
@@ -197,20 +223,49 @@ def get_vectorstore(
         with open(cache_path, "r", encoding="utf-8") as f:
             prev_files = set(line.strip() for line in f)
 
+    # Load previously processed custom chunks list
+    custom_chunks_cache_path = os.path.join(persist_dir, "custom_chunks.txt")
+    prev_custom_chunks = set()
+    if os.path.exists(custom_chunks_cache_path):
+        with open(custom_chunks_cache_path, "r", encoding="utf-8") as f:
+            prev_custom_chunks = set(line.strip() for line in f)
+
     # Filter new files
     new_files = [f for f in file_list if f not in prev_files]
-    if not new_files:
-        print("✅ No new files to add.")
+    
+    # Load custom chunks and filter new ones
+    all_custom_chunks = load_custom_chunks(chunks_dir)
+    new_custom_chunks = []
+    new_custom_chunk_files = []
+    
+    for chunk in all_custom_chunks:
+        chunk_filename = chunk.metadata["source"].replace("custom_chunk_", "")
+        if chunk_filename not in prev_custom_chunks:
+            new_custom_chunks.append(chunk)
+            new_custom_chunk_files.append(chunk_filename)
+    
+    all_chunks = []
+    
+    # Process new files if any
+    if new_files:
+        print(f"🆕 New files to process: {new_files}")
+        docs = extract_text(new_files, docs_dir)
+        file_chunks = get_text_chunks(docs)
+        all_chunks.extend(file_chunks)
+    
+    # Add new custom chunks
+    if new_custom_chunks:
+        all_chunks.extend(new_custom_chunks)
+        print(f"📁 Added {len(new_custom_chunks)} new custom chunks to processing queue")
+    
+    if not all_chunks:
+        print("✅ No new files or custom chunks to add.")
         return vectordb
-
-    print(f"🆕 New files to process: {new_files}")
-    docs = extract_text(new_files, docs_dir)
-    chunks = get_text_chunks(docs)
 
     # Deduplicate by chunk content hash
     seen_hashes = set()
     unique_chunks: List[Document] = []
-    for chunk in chunks:
+    for chunk in all_chunks:
         content_hash = hash_text(chunk.page_content)
         if content_hash not in seen_hashes:
             seen_hashes.add(content_hash)
@@ -220,16 +275,90 @@ def get_vectorstore(
     if unique_chunks:
         vectordb.add_documents(unique_chunks)
         vectordb.persist()
-        print(f"✅ Added {len(unique_chunks)} unique chunks.")
+        print(f"✅ Added {len(unique_chunks)} unique chunks to vector database.")
     else:
         print("⚠️ No unique chunks to embed — skipping update.")
 
-    # Append new files to file cache
-    with open(cache_path, "a", encoding="utf-8") as f:
-        for fname in new_files:
-            f.write(fname + "\n")
+    # Append new files to file cache (only for document files, not custom chunks)
+    if new_files:
+        with open(cache_path, "a", encoding="utf-8") as f:
+            for fname in new_files:
+                f.write(fname + "\n")
 
-    # Save new chunks for inspection
-    save_text_chunks(unique_chunks, chunks_dir=chunks_dir, overwrite=False)
+    # Append new custom chunks to custom chunks cache
+    if new_custom_chunk_files:
+        with open(custom_chunks_cache_path, "a", encoding="utf-8") as f:
+            for chunk_filename in new_custom_chunk_files:
+                f.write(chunk_filename + "\n")
+
+    # Save new chunks for inspection (only for document files, not custom chunks)
+    if new_files:
+        save_text_chunks(file_chunks, chunks_dir=chunks_dir, overwrite=False)
 
     return vectordb
+
+def force_refresh_with_custom_chunks(
+    persist_dir: str = DEFAULT_PERSIST_DIR,
+    chunks_dir: str = DEFAULT_CHUNKS_DIR
+) -> Chroma:
+    """
+    Force refresh the vector database to include all custom chunks.
+    This is useful when you want to ensure all custom chunks are included
+    even if there are no new document files.
+    """
+    embedding = OpenAIEmbeddings(
+        model="text-embedding-3-large",
+        openai_api_key=st.secrets["OPENAI_API_KEY"]
+    )
+
+    # Load or create vectorstore
+    vectordb = Chroma(
+        persist_directory=persist_dir,
+        embedding_function=embedding
+    )
+
+    # Load custom chunks
+    custom_chunks = load_custom_chunks(chunks_dir)
+    
+    if custom_chunks:
+        # Clear the custom chunks cache to force re-processing
+        custom_chunks_cache_path = os.path.join(persist_dir, "custom_chunks.txt")
+        if os.path.exists(custom_chunks_cache_path):
+            os.remove(custom_chunks_cache_path)
+        
+        # Add custom chunks to vector database
+        vectordb.add_documents(custom_chunks)
+        vectordb.persist()
+        
+        # Update the custom chunks cache
+        with open(custom_chunks_cache_path, "w", encoding="utf-8") as f:
+            for chunk in custom_chunks:
+                chunk_filename = chunk.metadata["source"].replace("custom_chunk_", "")
+                f.write(chunk_filename + "\n")
+        
+        print(f"✅ Force refreshed vector database with {len(custom_chunks)} custom chunks.")
+    else:
+        print("⚠️ No custom chunks found to add.")
+    
+    return vectordb
+
+def has_new_custom_chunks(persist_dir: str = DEFAULT_PERSIST_DIR, chunks_dir: str = DEFAULT_CHUNKS_DIR) -> bool:
+    """
+    Check if there are new custom chunks that haven't been processed yet.
+    """
+    if not os.path.exists(chunks_dir):
+        return False
+    
+    # Get current custom chunk files
+    current_chunk_files = set(f for f in os.listdir(chunks_dir) if f.endswith('.txt'))
+    
+    # Get previously processed custom chunk files
+    custom_chunks_cache_path = os.path.join(persist_dir, "custom_chunks.txt")
+    prev_custom_chunks = set()
+    if os.path.exists(custom_chunks_cache_path):
+        with open(custom_chunks_cache_path, "r", encoding="utf-8") as f:
+            prev_custom_chunks = set(line.strip() for line in f)
+    
+    # Check if there are new chunks
+    new_chunks = current_chunk_files - prev_custom_chunks
+    return len(new_chunks) > 0

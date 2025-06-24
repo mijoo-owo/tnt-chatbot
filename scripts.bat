@@ -15,7 +15,7 @@ REM Go to app directory
 cd app
 
 REM Open browser (run in parallel)
-start http://localhost:8501
+start http://localhost:8502
 
 REM Launch Streamlit app on port 5000
 streamlit run app.py

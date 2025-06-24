@@ -4,6 +4,7 @@ python-dotenv
 openai
 langchain
 langchain-community
+langchain-openai
 chromadb
 bs4
 tiktoken
@@ -19,3 +20,4 @@ openpyxl
 opencv-python
 numpy
 pymupdf
+rank-bm25
