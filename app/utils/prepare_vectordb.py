@@ -100,7 +100,7 @@ def extract_text(file_list: List[str], docs_dir: str = DEFAULT_DOCS_DIR):
                         ocr_loaded = ocr_pdf_with_paddleocr(path, lang='vi')
                         docs.extend(ocr_loaded)
                     except Exception as ocr_e:
-                        st.error(f"❌ PaddleOCR failed for {fn}: {ocr_e}")
+                        continue
                 else:
                     docs.extend(loaded)
             elif fn.lower().endswith(".txt"):
@@ -121,7 +121,6 @@ def extract_text(file_list: List[str], docs_dir: str = DEFAULT_DOCS_DIR):
                     try:
                         df = pd.read_excel(path, sheet_name=None)
                     except Exception as e2:
-                        st.error(f"❌ Failed to read Excel file {fn}: {e2}")
                         continue
                 text = ""
                 for sheet, data in df.items():
@@ -133,7 +132,7 @@ def extract_text(file_list: List[str], docs_dir: str = DEFAULT_DOCS_DIR):
             else:
                 st.warning(f"⚠️ Unsupported file type: {fn}")
         except Exception as e:
-            st.error(f"❌ Failed to process {fn}: {e}")
+            continue
     return docs
 
 def get_text_chunks(

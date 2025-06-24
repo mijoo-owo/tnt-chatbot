@@ -147,7 +147,6 @@ def save_url_to_vectordb(
         )
         resp.raise_for_status()
     except Exception as e:
-        st.error(f"❌ Failed to fetch {url}: {e}")
         return "", ""
 
     os.makedirs(docs_dir, exist_ok=True)

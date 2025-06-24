@@ -27,7 +27,7 @@ def save_docs_to_vectordb(uploaded_docs, existing_docs):
                     f.write(doc.getvalue())
                 # st.success(f"✅ Saved: {doc.name}")  # Removed to avoid duplicate messages
             except Exception as e:
-                st.error(f"❌ Failed to save {doc.name}: {e}")
+                continue
 
         return new_file_names
 
