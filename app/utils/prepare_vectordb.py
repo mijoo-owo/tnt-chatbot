@@ -100,7 +100,7 @@ def extract_text(file_list: List[str], docs_dir: str = DEFAULT_DOCS_DIR):
                         ocr_loaded = ocr_pdf_with_paddleocr(path, lang='vi')
                         docs.extend(ocr_loaded)
                     except Exception as ocr_e:
-                        st.error(f"❌ PaddleOCR failed for {fn}: {ocr_e}")
+                        continue
                 else:
                     docs.extend(loaded)
             elif fn.lower().endswith(".txt"):

@@ -14,8 +14,8 @@ class ChatApp:
     """
 
     def __init__(self):
-        st.set_page_config(page_title="TNT ChatBot 📚")
-        st.title("TNT ChatBot 📚")
+        st.set_page_config(page_title="PC1 ChatBot 📚")
+        st.title("PC1 ChatBot 📚")
 
         os.makedirs("docs", exist_ok=True)
         os.makedirs("chunks", exist_ok=True)
