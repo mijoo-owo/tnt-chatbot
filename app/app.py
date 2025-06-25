@@ -92,46 +92,46 @@ class ChatApp:
         # -------------------------------
         # Sidebar: Upload & URL options
         # -------------------------------
-        # with st.sidebar:
-        #     st.subheader("Upload documents")
-        #     uploaded_docs = st.file_uploader(
-        #         "Upload (.pdf, .txt, .doc, .docx, .xls, .xlsx)",
-        #         type=["pdf", "txt", "doc", "docx", "xls", "xlsx"],
-        #         accept_multiple_files=True
-        #     )
+        with st.sidebar:
+            st.subheader("Upload documents")
+            uploaded_docs = st.file_uploader(
+                "Upload (.pdf, .txt, .doc, .docx, .xls, .xlsx)",
+                type=["pdf", "txt", "doc", "docx", "xls", "xlsx"],
+                accept_multiple_files=True
+            )
 
-        #     if uploaded_docs:
-        #         files_on_disk = os.listdir("docs")
-        #         new_files = save_docs_to_vectordb(uploaded_docs, files_on_disk)
-        #         if new_files:
-        #             st.success(f"📁 Saved: {', '.join(new_files)}")
+            if uploaded_docs:
+                files_on_disk = os.listdir("docs")
+                new_files = save_docs_to_vectordb(uploaded_docs, files_on_disk)
+                if new_files:
+                    st.success(f"📁 Saved: {', '.join(new_files)}")
 
-        #     st.subheader("Or enter website URLs")
+            st.subheader("Or enter website URLs")
 
-        #     crawl_links = st.checkbox("Crawl all links on the same domain", value=False)
-        #     page_limit = 50
-        #     if crawl_links:
-        #         page_limit = st.number_input(
-        #             "Maximum pages to crawl", min_value=1, max_value=1000, value=50
-        #         )
+            crawl_links = st.checkbox("Crawl all links on the same domain", value=False)
+            page_limit = 50
+            if crawl_links:
+                page_limit = st.number_input(
+                    "Maximum pages to crawl", min_value=1, max_value=1000, value=50
+                )
 
-        #     self._handle_url_inputs()
+            self._handle_url_inputs()
 
-        #     if st.button("🌐 Process URLs", use_container_width=True):
-        #         files_on_disk = os.listdir("docs")
-        #         for url in st.session_state.url_inputs:
-        #             url = url.strip()
-        #             if url:
-        #                 save_url_to_vectordb(
-        #                     url, 
-        #                     files_on_disk, 
-        #                     crawl_links=crawl_links, 
-        #                     page_limit=page_limit
-        #                 )
-        #         st.success("✅ All valid URLs processed.")
+            if st.button("🌐 Process URLs", use_container_width=True):
+                files_on_disk = os.listdir("docs")
+                for url in st.session_state.url_inputs:
+                    url = url.strip()
+                    if url:
+                        save_url_to_vectordb(
+                            url, 
+                            files_on_disk, 
+                            crawl_links=crawl_links, 
+                            page_limit=page_limit
+                        )
+                st.success("✅ All valid URLs processed.")
 
-        #     if st.button("Reset", use_container_width=True):
-        #         self.reset_all()
+            if st.button("Reset", use_container_width=True):
+                self.reset_all()
 
         # -------------------------------
         # Vectorstore and Chat
