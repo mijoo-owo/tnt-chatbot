@@ -71,26 +71,26 @@ def chat(chat_history, vectordb):
             ]
 
             # Show sources in sidebar
-            with st.sidebar:
-                st.subheader("📚 Sources")
-                if context:
-                    metadata_dict = defaultdict(list)
-                    for doc in context:
-                        meta = doc.metadata
-                        src = meta.get('source', 'unknown source')
-                        pg = meta.get('page')
-                        if pg is not None:
-                            metadata_dict[src].append(pg)
+            # with st.sidebar:
+            #     st.subheader("📚 Sources")
+            #     if context:
+            #         metadata_dict = defaultdict(list)
+            #         for doc in context:
+            #             meta = doc.metadata
+            #             src = meta.get('source', 'unknown source')
+            #             pg = meta.get('page')
+            #             if pg is not None:
+            #                 metadata_dict[src].append(pg)
                     
-                    if metadata_dict:
-                        for source, pages in metadata_dict.items():
-                            st.write(f"**Source:** {source}")
-                            if pages:
-                                st.write(f"Pages: {', '.join(map(str, pages))}")
-                    else:
-                        st.write("No page metadata available for these sources.")
-                else:
-                    st.write("No context found for this answer.")
+            #         if metadata_dict:
+            #             for source, pages in metadata_dict.items():
+            #                 st.write(f"**Source:** {source}")
+            #                 if pages:
+            #                     st.write(f"Pages: {', '.join(map(str, pages))}")
+            #         else:
+            #             st.write("No page metadata available for these sources.")
+            #     else:
+            #         st.write("No context found for this answer.")
 
         except Exception as e:
             st.error(f"❌ Error in chat: {e}")
