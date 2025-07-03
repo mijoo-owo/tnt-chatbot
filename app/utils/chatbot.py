@@ -62,48 +62,45 @@ def chat(chat_history, vectordb):
     user_query = st.chat_input("Ask a question:")
     if user_query:
         try:
-            response, context = get_response(user_query, chat_history, vectordb)
-            
-            # keep the last 9 exchanges + the new one
-            chat_history = chat_history[-9:] + [
-                HumanMessage(content=user_query),
-                AIMessage(content=response)
-            ]
+            # Show user's message immediately
+            chat_history = chat_history[-9:] + [HumanMessage(content=user_query)]
+            for message in chat_history:
+                role = "AI" if isinstance(message, AIMessage) else "Human"
+                with st.chat_message(role):
+                    st.write(message.content)
 
-            # Show sources in sidebar
-            # with st.sidebar:
-            #     st.subheader("📚 Sources")
-            #     if context:
-            #         metadata_dict = defaultdict(list)
-            #         for doc in context:
-            #             meta = doc.metadata
-            #             src = meta.get('source', 'unknown source')
-            #             pg = meta.get('page')
-            #             if pg is not None:
-            #                 metadata_dict[src].append(pg)
-                    
-            #         if metadata_dict:
-            #             for source, pages in metadata_dict.items():
-            #                 st.write(f"**Source:** {source}")
-            #                 if pages:
-            #                     st.write(f"Pages: {', '.join(map(str, pages))}")
-            #         else:
-            #             st.write("No page metadata available for these sources.")
-            #     else:
-            #         st.write("No context found for this answer.")
+            # Prepare streaming LLM chain
+            chain = get_context_retriever_chain(vectordb)
+            # Create a placeholder for the AI's response
+            with st.chat_message("AI"):
+                placeholder = st.empty()
+                final_response = ""
+                # Stream the response token by token (simulate streaming)
+                for chunk in chain.stream({"input": user_query, "chat_history": chat_history}):
+                    content = ""
+                    if isinstance(chunk, dict):
+                        content = chunk.get("answer") or chunk.get("result") or ""
+                    elif hasattr(chunk, 'text'):
+                        content = chunk.text
+                    final_response += content
+                    placeholder.markdown(final_response + "▌")  # Blinking cursor
+                placeholder.markdown(final_response)  # Remove cursor at end
+
+            # Add the AI's response to chat history
+            chat_history = chat_history + [AIMessage(content=final_response)]
 
         except Exception as e:
             st.error(f"❌ Error in chat: {e}")
             # Add error message to chat history
             chat_history = chat_history[-9:] + [
-                HumanMessage(content=user_query),
                 AIMessage(content="I'm sorry, I encountered an error. Please try again.")
             ]
 
-    # Display chat messages
-    for message in chat_history:
-        role = "AI" if isinstance(message, AIMessage) else "Human"
-        with st.chat_message(role):
-            st.write(message.content)
+    else:
+        # Display chat messages if no new user input
+        for message in chat_history:
+            role = "AI" if isinstance(message, AIMessage) else "Human"
+            with st.chat_message(role):
+                st.write(message.content)
 
     return chat_history
