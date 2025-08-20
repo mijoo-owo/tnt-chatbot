@@ -1,0 +1,57 @@
+\chapter{Công việc triển khai}
+
+\section{Kiến trúc RAG}
+
+\subsection{Kiến trúc LLM và Transformer}
+
+\emph{Mô hình ngôn ngữ lớn} (Large Language Model -- LLM) hiện đại thường được xây dựng dựa trên kiến trúc \emph{Transformer}, bao gồm hai thành phần chính là \emph{Encoder} và \emph{Decoder}.
+
+Khối \emph{Encoder} nhận đầu vào là chuỗi từ được biến đổi thành vector qua lớp Embeddings, cộng thêm thông tin vị trí từ (Positional Encoding) để bảo toàn thứ tự. Mỗi Encoder bao gồm các tầng lặp với hai lớp con: Multi-head Attention và mạng nơ-ron feedforward (MLP), kèm cơ chế Residual Connection và Layer Normalisation (Add \& Norm) nhằm đảm bảo mô hình Transformer vừa học được biểu diễn phức tạp, vừa tránh mất ổn định khi huấn luyện sâu. Encoder chịu trách nhiệm trích xuất đặc trưng ngữ cảnh toàn cục từ toàn bộ chuỗi đầu vào.
+
+Khối \emph{Decoder} cũng nhận chuỗi Embeddings đầu ra đã được dịch phải một bước để mô hình dự đoán từ tiếp theo. Mỗi tầng Decoder gồm ba lớp con: Masked Multi-head Attention (đảm bảo mô hình không nhìn trước từ tương lai), Multi-head Attention với đầu ra Encoder (để kết hợp thông tin ngữ cảnh từ đầu vào), và mạng nơ-ron feedforward. Cuối cùng, đầu ra qua lớp tuyến tính và hàm Softmax để tạo phân phối xác suất từ.
+
+Cơ chế \emph{Attention} đóng vai trò cốt lõi và được coi như ``trái tim'' của Transformer. Ở Encoder, mỗi từ trong câu có thể ``chú ý'' đến các từ khác để học quan hệ ngữ nghĩa toàn cục. Cơ chế Multi-head Attention thực hiện nhiều phép tính attention song song với các trọng số khác nhau, cho phép mô hình nắm bắt các loại quan hệ khác nhau (ví dụ như ngữ pháp, ngữ nghĩa). Ở Decoder, Masked Multi-head Attention đảm bảo mô hình chỉ nhìn thấy những từ đã sinh ra trước đó, trong khi Attention với đầu ra Encoder cho phép kết hợp thông tin từ toàn bộ câu đầu vào. Nhờ đó, Transformer vừa duy trì tính mạch lạc trong ngôn ngữ sinh ra, vừa đảm bảo nội dung bám sát ngữ cảnh đầu vào.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.99\linewidth]{Figures/02.1_transformer2.png}
+    \caption{Kiến trúc Transformer}
+    \label{fig:transformer}
+\end{figure}
+
+\subsection{Hạn chế của LLM thuần túy}
+
+LLM được huấn luyện trên tập dữ liệu rất lớn, có khả năng sinh ngôn ngữ mạch lạc và thực hiện nhiều tác vụ như tóm tắt, so sánh, suy luận ở mức độ nhất định. Tuy nhiên, khi áp dụng trực tiếp trong bối cảnh doanh nghiệp, LLM thuần túy bộc lộ một số vấn đề: mô hình không nắm được dữ liệu riêng tư hoặc chuyên biệt của tổ chức; kiến thức bị cố định theo thời điểm huấn luyện nên khó cập nhật theo thời gian; và đặc biệt có thể phát sinh hiện tượng \emph{hallucination} (sinh ra thông tin không đúng sự thật). Ngoài ra, câu trả lời của LLM thường không kèm theo trích dẫn nguồn, gây khó khăn cho việc kiểm chứng.
+
+Hiện tượng \emph{hallucination} là một trong những vấn đề nghiêm trọng nhất của LLM thuần túy. Thuật ngữ này mô tả việc mô hình tạo ra thông tin không chính xác hoặc hoàn toàn sai lệch với thực tế, nhưng lại được trình bày một cách tự tin và thuyết phục. Nguyên nhân của hiện tượng này xuất phát từ bản chất xác suất trong việc sinh văn bản của LLM. Khi gặp phải câu hỏi mà dữ liệu huấn luyện không chứa thông tin chính xác, mô hình vẫn cố gắng tạo ra câu trả lời hợp lý nhất dựa trên các mẫu đã học, dẫn đến việc ``bịa đặt'' thông tin một cách vô thức.
+
+Vấn đề thiếu kiến thức cụ thể cũng là một rào cản lớn. LLM được huấn luyện trên dữ liệu công khai tổng quát, do đó không thể nắm bắt được thông tin riêng tư, tài liệu nội bộ của tổ chức hoặc những kiến thức chuyên biệt không có sẵn trên internet. Điều này làm cho chúng trở nên bất lực khi đối mặt với các câu hỏi về chính sách công ty, quy trình nội bộ hoặc dữ liệu nghiên cứu độc quyền.
+
+Hạn chế về cập nhật thời gian thực là một vấn đề cấu trúc của LLM. Kiến thức của mô hình bị ``đóng băng'' tại thời điểm kết thúc quá trình huấn luyện, gọi là \emph{knowledge cutoff}. Sau thời điểm này, mô hình không thể tiếp nhận thông tin mới mà không trải qua quá trình huấn luyện lại tốn kém. Điều này khiến LLM không thể trả lời chính xác về các sự kiện, tin tức hoặc thay đổi xảy ra sau thời điểm cutoff.
+
+\subsection{Nguyên lý hoạt động của RAG}
+
+Kiến trúc \emph{tạo sinh dựa trên truy xuất tăng cường} (Retrieval-Augmented Generation -- RAG) được đề xuất nhằm khắc phục các hạn chế trên bằng cách kết hợp bước truy xuất thông tin (retrieval) từ kho dữ liệu bên ngoài trước khi sinh phản hồi. Thay vì yêu cầu mô hình ``biết mọi thứ'', RAG cung cấp cho mô hình phần ngữ cảnh liên quan được truy xuất động. Nhờ đó, phản hồi được gắn với dữ liệu thực tế, giúp giảm hiện tượng hallucination và cho phép cập nhật tri thức theo thời gian bằng cách bổ sung/chỉnh sửa kho dữ liệu mà không cần huấn luyện lại mô hình.
+
+Luồng xử lý của một hệ thống RAG điển hình gồm ba giai đoạn chính: \emph{Retrieval} \(\rightarrow\) \emph{Augmentation} \(\rightarrow\) \emph{Generation}. Quy trình này tạo ra một cầu nối thông minh giữa khả năng tìm kiếm dữ liệu cụ thể và khả năng sinh ngôn ngữ tự nhiên.
+
+\begin{enumerate}
+    \item Trong bước \emph{Truy xuất} (Retrieval), hệ thống sẽ mã hóa truy vấn (prompt) của người dùng thành vector embedding và tìm kiếm những đoạn văn bản liên quan nhất trong cơ sở dữ liệu vector. Quá trình này sử dụng các phép đo độ tương đồng để xác định những đoạn nội dung có ngữ nghĩa gần nhất với câu hỏi. Khác với tìm kiếm từ khóa truyền thống, tìm kiếm vector có khả năng nắm bắt được ngữ nghĩa sâu hơn, cho phép tìm ra thông tin liên quan ngay cả khi không có sự trùng khớp chính xác về từ ngữ.
+
+    \item Bước \emph{Tăng cường} (Augmentation) thực hiện việc kết hợp câu hỏi gốc với những đoạn văn bản đã được truy xuất. Các đoạn văn bản này được sắp xếp theo độ liên quan và được đưa vào \emph{cửa sổ ngữ cảnh} (context window) của LLM như một phần của truy vấn. Việc cung cấp ngữ cảnh cụ thể này giúp gắn câu trả lời với thông tin thực tế, giảm thiểu đáng kể khả năng mô hình tạo ra nội dung không chính xác.
+
+    \item Cuối cùng, bước \emph{Tạo sinh} (Generation) sử dụng LLM để tạo ra phản hồi cho truy vấn mở rộng (bao gồm cả câu hỏi ban đầu và ngữ cảnh đã được cung cấp). Tại bước này, LLM vẫn phát huy được khả năng sinh ngôn ngữ tự nhiên, nhưng được hướng dẫn bởi thông tin cụ thể từ tài liệu nguồn. Kết quả là những câu trả lời vừa tự nhiên, mạch lạc, vừa có độ chính xác cao dựa trên dữ liệu thực tế.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Figures/02.1_rag-pipeline.png}
+    \caption{Kiến trúc RAG}
+    \label{fig:rag}
+\end{figure}
+
+\subsection{So sánh RAG với LLM}
+
+So với LLM thuần túy, RAG đem lại một số ưu thế thực tiễn. Tính chính xác được cải thiện nhờ dựa trên bằng chứng cụ thể; khả năng cập nhật tri thức phụ thuộc vào việc thay đổi kho tài liệu thay vì huấn luyện lại; và tính minh bạch được nâng cao nhờ kèm theo nguồn trích dẫn. Bên cạnh đó, RAG giúp kiểm soát chi phí tốt hơn trong các kịch bản doanh nghiệp, vì phần lớn công việc chuyển sang bước truy xuất và chỉ sử dụng mô hình sinh trong phạm vi ngữ cảnh liên quan.
+
+Tuy nhiên, RAG cũng có chi phí độ trễ cao hơn do thêm bước truy xuất; chất lượng câu trả lời phụ thuộc mạnh vào chất lượng chỉ mục, chiến lược chia đoạn và mô hình embedding; và cần cơ chế giám sát để phát hiện, xử lý các trường hợp truy xuất sai lệch hoặc thiếu bao phủ.

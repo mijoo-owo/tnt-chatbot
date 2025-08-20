@@ -1,0 +1,36 @@
+\renewcommand{\chaptername}{Phần}
+\renewcommand{\figurename}{Hình}
+
+\chapter{Giới thiệu}
+
+\section{Đặt vấn đề}
+
+Trong bối cảnh thông tin số phát triển mạnh mẽ, việc quản lý và truy xuất thông tin từ một khối lượng tài liệu khổng lồ đã trở thành thách thức lớn và là nhiệm vụ quan trọng cần được giải quyết đối với nhiều tổ chức và cá nhân. Người dùng thường phải xử lý hàng trăm, thậm chí hàng nghìn tài liệu ở nhiều định dạng khác nhau như PDF, Word, Excel hay các nội dung phân tán trên nhiều trang web, nhưng lại thiếu các công cụ đủ thông minh để tìm kiếm và khai thác thông tin một cách hiệu quả. 
+
+Các phương pháp truyền thống, chẳng hạn như đọc thủ công từng tài liệu hoặc sử dụng tìm kiếm từ khóa đơn giản (Ctrl+F), bộc lộ nhiều hạn chế. Chúng thường thiếu khả năng hiểu ngữ cảnh và ý nghĩa ngữ nghĩa của câu hỏi, khiến kết quả tìm kiếm có độ chính xác thấp. Đồng thời, người dùng phải mất nhiều thời gian mở và rà soát từng tài liệu, đặc biệt khi truy vấn liên quan đến những câu hỏi phức tạp đòi hỏi tổng hợp thông tin từ nhiều nguồn. Ngoài ra, việc xử lý tài liệu đa ngôn ngữ (bao gồm tiếng Việt) còn gặp nhiều rào cản về mặt kỹ thuật.
+
+Trước những khó khăn trên, nhu cầu về một hệ thống chatbot thông minh có khả năng “đọc hiểu” nội dung tài liệu và phản hồi bằng ngôn ngữ tự nhiên ngày càng trở nên cấp thiết. Hệ thống này cần hỗ trợ xử lý đa định dạng tài liệu, nắm bắt ngữ cảnh để trả lời những câu hỏi phức tạp, cung cấp thông tin chính xác dựa trên nội dung cụ thể, hỗ trợ nhiều ngôn ngữ (bao gồm tiếng Việt) và cho phép truy xuất nguồn gốc thông tin để người dùng kiểm chứng.
+
+\section{Tổng quan về các công nghệ giải quyết}
+
+Hiện nay, có hai hướng tiếp cận chính được áp dụng rộng rãi trong việc xây dựng hệ thống hỏi đáp thông minh: \emph{Mô hình ngôn ngữ lớn} (Large Language Model -- LLM) và \emph{Tạo sinh dựa trên truy xuất tăng cường} (Retrieval-Augmented Generation -- RAG).
+
+\subsection{Large Language Model (LLM)}
+
+Các mô hình ngôn ngữ lớn như ChatGPT, Claude hoặc Google Gemini được huấn luyện trên khối lượng dữ liệu khổng lồ từ internet cho thấy khả năng ấn tượng trong việc hiểu và sinh ngôn ngữ tự nhiên. Chúng có khả năng suy luận, phân tích, tạo ra câu trả lời mạch lạc, đồng thời sở hữu kiến thức tổng quát trên nhiều lĩnh vực. Ngoài ra, các mô hình này đều hỗ trợ nhiều ngôn ngữ, trong đó có tiếng Việt.
+
+Tuy nhiên, LLM thuần túy cũng tồn tại những hạn chế đáng kể. Chúng không có khả năng truy cập trực tiếp vào dữ liệu riêng tư, đồng thời bị giới hạn bởi thời điểm huấn luyện nên không thể cập nhật thông tin thời gian thực. Quan trọng hơn, câu trả lời do LLM tạo ra thường không đi kèm thông tin về nguồn gốc dữ liệu, khiến việc kiểm chứng và xác thực trở nên khó khăn.
+
+\subsection{Retrieval-Augmented Generation (RAG)}
+
+RAG là kiến trúc kết hợp giữa khả năng tìm kiếm thông tin (retrieval) và khả năng sinh ngôn ngữ (generation) của LLM. Thay vì chỉ dựa vào kiến thức đã được huấn luyện sẵn, RAG bổ sung thông tin từ cơ sở dữ liệu bên ngoài vào quá trình sinh câu trả lời. Nhờ đó, hệ thống vừa tận dụng được khả năng xử lý ngôn ngữ của LLM, vừa đảm bảo nội dung phản hồi dựa trên dữ liệu cụ thể.
+
+Ưu điểm nổi bật của RAG nằm ở độ chính xác cao nhờ dựa trực tiếp vào tài liệu nguồn, giúp hỗ trợ truy xuất nguồn gốc thông tin, nâng cao tính minh bạch và khả năng kiểm chứng. Hệ thống có thể dễ dàng cập nhật hoặc bổ sung dữ liệu mới mà không cần huấn luyện lại mô hình, giúp tiết kiệm chi phí triển khai. Đồng thời, kiến trúc này cũng rất linh hoạt, áp dụng được cho nhiều loại tài liệu và lĩnh vực khác nhau, đồng thời đảm bảo bảo mật khi dữ liệu có thể được lưu trữ và xử lý cục bộ.
+
+\section{Lý do lựa chọn công nghệ RAG}
+
+Qua phân tích ưu nhược điểm của từng phương pháp, RAG được lựa chọn làm kiến trúc chính cho dự án nhờ tính thực tiễn và khả năng đáp ứng tốt yêu cầu đặt ra. Hệ thống dựa trên RAG có thể xử lý tài liệu cụ thể của người dùng thay vì chỉ dựa vào kiến thức tổng quát, từ đó đưa ra câu trả lời chính xác và sát với ngữ cảnh. Việc thêm mới hoặc cập nhật tài liệu diễn ra dễ dàng, phù hợp với môi trường doanh nghiệp nơi thông tin thay đổi liên tục.
+
+Bên cạnh đó, khả năng truy xuất nguồn gốc thông tin giúp người dùng kiểm chứng độ tin cậy của câu trả lời, yếu tố đặc biệt quan trọng trong các ứng dụng yêu cầu độ chính xác cao. Về chi phí, RAG chỉ cần sử dụng API của các LLM sẵn có mà không phải huấn luyện lại mô hình, tiết kiệm đáng kể nguồn lực tính toán và thời gian. Cuối cùng, với khả năng hỗ trợ nhiều ngôn ngữ (bao gồm tiếng Việt) cùng các công cụ OCR và embedding, RAG đáp ứng tốt nhu cầu của người dùng trong môi trường đa dạng về ngôn ngữ.
+
+Từ những lý do trên, RAG được xác định là giải pháp tối ưu để xây dựng hệ thống chatbot thông minh có khả năng xử lý và trả lời câu hỏi dựa trên nội dung tài liệu một cách chính xác, linh hoạt và hiệu quả.
