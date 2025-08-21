@@ -19,3 +19,6 @@ openpyxl
 opencv-python
 numpy
 pymupdf
+langchain-google-genai
+google-generativeai
+nest-asyncio

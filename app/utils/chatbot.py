@@ -1,10 +1,12 @@
 # utils/chatbot.py
 
+import os
 import streamlit as st
 from collections import defaultdict
 from dotenv import load_dotenv
 
-from langchain_openai import ChatOpenAI
+# from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.outputs import ChatGenerationChunk
@@ -19,12 +21,19 @@ def get_context_retriever_chain(vectordb, callbacks=None):
     load_dotenv()
 
     # Use OpenAI's GPT-4o-mini via LangChain wrapper
-    llm = ChatOpenAI(
-        model="gpt-4o-mini",
+    # llm = ChatOpenAI(
+    #     model="gpt-4o-mini",
+    #     temperature=0.1,
+    #     streaming=callbacks is not None,
+    #     callbacks=callbacks,
+    #     openai_api_key=st.secrets["OPENAI_API_KEY"]
+    # )
+
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.0-flash",
         temperature=0.1,
-        streaming=callbacks is not None,
-        callbacks=callbacks,
-        openai_api_key=st.secrets["OPENAI_API_KEY"]
+        streaming=True,
+        google_api_key=os.getenv('GEMINI_API_KEY')
     )
 
     retriever = vectordb.as_retriever()
@@ -87,11 +96,17 @@ def chat(chat_history, vectordb):
             st.write(user_query)
 
         # Setup LLM
-        llm = ChatOpenAI(
-            model="gpt-4o-mini",
+        # llm = ChatOpenAI(
+        #     model="gpt-4o-mini",
+        #     temperature=0.1,
+        #     streaming=True
+        #     # openai_api_key=st.secrets["OPENAI_API_KEY"]  # Remove for now, fix separately
+        # )
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
             temperature=0.1,
-            streaming=True
-            # openai_api_key=st.secrets["OPENAI_API_KEY"]  # Remove for now, fix separately
+            streaming=True,
+            google_api_key=os.getenv('GEMINI_API_KEY')
         )
 
         retriever = vectordb.as_retriever()
