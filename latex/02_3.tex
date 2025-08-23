@@ -1,0 +1,57 @@
+\section{Xử lý dữ liệu từ nhiều nguồn}
+
+\subsection{Tài liệu PDF}
+
+Định dạng PDF {(Portable Document Format)} đóng vai trò quan trọng trong hầu hết các hệ thống quản lý tài liệu doanh nghiệp, từ báo cáo tài chính, tài liệu pháp lý đến các nghiên cứu khoa học. Tuy nhiên, việc trích xuất thông tin từ PDF không đơn giản do sự đa dạng trong cách thức tạo ra chúng. Hệ thống RAG cần phải xử lý được hai loại PDF chính: PDF văn bản \emph{(text-based)} được tạo trực tiếp từ các ứng dụng văn phòng, và PDF hình ảnh \emph{(scan-based)} được số hóa từ tài liệu giấy thông qua máy quét.
+
+Đối với PDF văn bản, hệ thống sử dụng \texttt{PyPDFLoader} từ thư viện LangChain để trích xuất nội dung trực tiếp. Module này có khả năng duy trì cấu trúc văn bản gốc, bao gồm thông tin về trang và định dạng cơ bản, đồng thời xử lý được các ký tự đặc biệt và font Unicode. Quá trình trích xuất diễn ra tương đối nhanh chóng và cho kết quả có độ chính xác cao, vì văn bản đã tồn tại dưới dạng dữ liệu có cấu trúc trong file PDF.
+
+Thách thức lớn hơn xuất hiện khi xử lý PDF dạng hình ảnh, nơi nội dung văn bản chỉ tồn tại dưới dạng pixel trên các trang scan. Trong trường hợp này, hệ thống cần áp dụng công nghệ {nhận dạng ký tự quang học} (\emph{Optical Character Recognition} -- OCR) để chuyển đổi hình ảnh thành văn bản có thể xử lý được. PaddleOCR được lựa chọn làm giải pháp OCR chính nhờ khả năng hỗ trợ đa ngôn ngữ mạnh mẽ, đặc biệt là tiếng Việt với độ chính xác cao. Quy trình xử lý của PaddleOCR bao gồm bốn bước chính:
+
+\begin{enumerate}
+    \item \textbf{Trích xuất dữ liệu:} Với mỗi trang PDF, nếu trong trang có chứa ảnh (ảnh chụp hoặc scan), các ảnh đó sẽ được tách ra và đưa trực tiếp vào mô hình OCR. Ngược lại, nếu trang không có ảnh, toàn bộ trang sẽ được chuyển đổi (render) thành ảnh bitmap để OCR có thể nhận dạng văn bản.
+
+    \item \textbf{Phát hiện văn bản (Text detection):} Hệ thống sử dụng mạng nơ-ron tích chập (CNN) để xác định những vùng trên ảnh có chứa chữ viết. Kết quả thu được là các khung giới hạn (bounding box) bao quanh các khối văn bản.
+
+    \item \textbf{Nhận dạng ký tự (Character recognition):} Các vùng chứa văn bản đã phát hiện được đưa vào mô hình OCR. Mô hình áp dụng kiến trúc CRNN (Convolutional Recurrent Neural Network) để chuyển đổi từng vùng hình ảnh thành chuỗi ký tự tương ứng.
+
+    \item \textbf{Tổng hợp kết quả:} Văn bản nhận dạng từ từng trang được gom lại, gắn số trang và trả về dưới dạng một đối tượng văn bản thống nhất kèm theo siêu dữ liệu nguồn.
+\end{enumerate}
+
+Để đảm bảo chất lượng đầu ra, hệ thống tích hợp cơ chế phát hiện văn bản nhiễu thông qua hàm \texttt{is\_gibberish()}. Hàm này đánh giá tỷ lệ ký tự có ý nghĩa (chữ cái và số) so với tổng số ký tự trong đoạn văn bản. Nếu tỷ lệ này thấp hơn ngưỡng định trước (thường là 30\%), hệ thống sẽ coi đoạn văn bản đó là nhiễu và loại bỏ khỏi quá trình xử lý tiếp theo. Cơ chế này giúp tránh việc đưa các ký tự vô nghĩa hoặc lỗi OCR vào cơ sở dữ liệu vector, từ đó nâng cao chất lượng tìm kiếm và sinh câu trả lời.
+
+Quá trình xử lý PDF trong hệ thống được thiết kế theo nguyên tắc \emph{fallback} thông minh. Ban đầu, hệ thống sẽ thử trích xuất văn bản trực tiếp bằng PyPDFLoader. Nếu kết quả trả về rỗng hoặc chứa quá nhiều ký tự nhiễu, hệ thống sẽ tự động chuyển sang sử dụng PaddleOCR để xử lý file như một PDF dạng hình ảnh. Chiến lược này đảm bảo hệ thống có thể xử lý được mọi loại PDF mà không cần người dùng phải phân loại trước, đồng thời tối ưu hóa thời gian xử lý bằng cách ưu tiên phương pháp nhanh hơn khi có thể.
+
+\subsection{Các định dạng tài liệu khác}
+
+Ngoài PDF, hệ thống RAG cần có khả năng xử lý đa dạng các định dạng tài liệu thường gặp trong môi trường văn phòng và nghiên cứu. Mỗi định dạng đều có những đặc thù riêng về cấu trúc dữ liệu và phương thức lưu trữ thông tin, đòi hỏi những chiến lược trích xuất phù hợp. Việc hỗ trợ đa định dạng giúp tăng tính linh hoạt của hệ thống, giảm thiểu rào cản đối với người dùng trong việc áp dụng công nghệ RAG vào quy trình làm việc.
+
+\subsubsection{Tài liệu Word}
+
+Microsoft Word là ứng dụng soạn thảo văn bản phổ biến nhất trong môi trường doanh nghiệp, với hai định dạng chính là DOC (phiên bản cũ) và DOCX (phiên bản mới dựa trên XML). Đối với file DOCX, hệ thống sử dụng \texttt{Docx2txtLoader} từ LangChain, tận dụng khả năng đọc trực tiếp cấu trúc XML nén bên trong file DOCX. \texttt{Docx2txtLoader} không chỉ trích xuất văn bản thuần túy mà còn có thể bảo toàn một phần thông tin định dạng như đoạn văn, tiêu đề và danh sách.
+
+Việc xử lý file DOC phức tạp hơn do đây là định dạng nhị phân độc quyền của Microsoft. Hệ thống áp dụng \texttt{UnstructuredWordDocumentLoader} -- một giải pháp mạnh mẽ có khả năng phân tích cấu trúc nhị phân và trích xuất nội dung đáng tin cậy. Module này đặc biệt hiệu quả trong việc xử lý các tài liệu có cấu trúc phức tạp, bao gồm bảng biểu, header, footer và các thành phần đồ họa nhúng.
+
+\subsubsection{Bảng tính Excel}
+
+Bảng tính Excel chứa đựng một lượng lớn dữ liệu có cấu trúc, được sử dụng rộng rãi trong các tổ chức cho báo cáo tài chính hay dữ liệu nghiên cứu. Hệ thống hỗ trợ cả hai định dạng XLS và XLSX thông qua thư viện pandas với các công cụ chuyên dụng: \texttt{xlrd} cho file XLS cũ và \texttt{openpyxl} cho định dạng XLSX hiện đại. Điểm đặc biệt của việc xử lý tài liệu Excel là khả năng đọc nhiều sheet trong cùng một file, trong đó mỗi sheet được xem như một đơn vị thông tin độc lập.
+
+Quá trình chuyển đổi dữ liệu từ dạng bảng sang văn bản phù hợp cho embedding đòi hỏi sự cân nhắc kỹ lưỡng. Hệ thống sử dụng phương thức \texttt{to\_string()} của pandas để chuyển đổi DataFrame thành định dạng văn bản có cấu trúc, bảo toàn mối quan hệ giữa các cột và hàng. Thông tin về tên sheet cũng được lưu trữ lại trong siêu dữ liệu, giúp người dùng có thể truy xuất nguồn gốc chính xác của thông tin khi cần thiết.
+
+\subsubsection{File văn bản thuần}
+
+File văn bản thuần (TXT) tuy đơn giản về mặt cấu trúc nhưng lại đặt ra thách thức về mã hóa, đặc biệt quan trọng khi xử lý nội dung đa ngôn ngữ. Hệ thống sử dụng \texttt{TextLoader} với bộ mã hóa UTF-8 mặc định, đảm bảo khả năng đọc chính xác các ký tự tiếng Việt và các ngôn ngữ khác sử dụng bộ ký tự mở rộng. Trong trường hợp xảy ra lỗi ngoại lệ khi giải mã, hệ thống sẽ thử các bộ mã hóa phổ biến khác như UTF-16, UTF-32, CP1252 hay ISO-8859-1.
+
+Mặc dù file TXT không chứa thông tin định dạng phức tạp, việc xử lý chúng vẫn đòi hỏi sự chú ý đến các vấn đề như ký tự xuống dòng khác nhau giữa các hệ điều hành (LF, CRLF), khoảng trắng thừa và các ký tự điều khiển không mong muốn. Hệ thống tích hợp các bước tiền xử lý để chuẩn hóa định dạng và loại bỏ các ký tự nhiễu, đảm bảo chất lượng dữ liệu đầu vào cho các giai đoạn xử lý tiếp theo.
+
+\subsection{Dữ liệu web}
+
+Việc tích hợp nội dung từ các trang web mở ra khả năng tiếp cận một nguồn thông tin khổng lồ và được cập nhật thường xuyên. Tuy nhiên, xử lý dữ liệu web phức tạp hơn rất nhiều so với các định dạng tài liệu truyền thống. Bên cạnh những thông tin hữu ích, nội dung web còn lẫn nhiều yếu tố không liên quan như menu điều hướng, quảng cáo, footer hay các đoạn mã JavaScript. Hơn nữa, cấu trúc HTML giữa các trang thường đa dạng và thiếu nhất quán, đòi hỏi hệ thống phải có khả năng linh hoạt và thích ứng cao để trích xuất được thông tin có giá trị.
+
+Hệ thống sử dụng thư viện BeautifulSoup để phân tích cú pháp HTML và trích xuất nội dung văn bản. Quá trình này áp dụng các kỹ thuật lọc tự động nhằm loại bỏ nhiễu. Đầu tiên, các thẻ HTML không chứa nội dung hữu ích như \texttt{<script>}, \texttt{<style>}, \texttt{<noscript>} và \texttt{<meta>} được loại bỏ hoàn toàn. Sau đó, hệ thống tiếp tục xác định và loại bỏ các thành phần giao diện bằng cách phân tích các thuộc tính \texttt{class}, \texttt{id} và \texttt{role}, đồng thời đối chiếu với các mẫu tên phổ biến như \texttt{"nav"}, \texttt{"menu"}, \texttt{"header"}, \texttt{"footer"} hay \texttt{"advertisement"}.
+
+Một tính năng quan trọng của hệ thống là khả năng tự động tìm kiếm các liên kết khác có cùng tên miền (domain), hay còn gọi là \emph{crawling}. Khi người dùng cung cấp một URL, hệ thống có thể được cấu hình để lần lượt khám phá và xử lý toàn bộ các trang liên quan. Cơ chế này đặc biệt hữu ích khi thu thập dữ liệu từ các nguồn mang tính hệ thống như wiki nội bộ, cơ sở tri thức doanh nghiệp hoặc tài liệu kỹ thuật. Thuật toán crawling được triển khai kèm theo các biện pháp kiểm soát nhằm đảm bảo hiệu quả và ổn định, bao gồm giới hạn số lượng trang tối đa, đặt khoảng trễ giữa các request, cũng như loại trừ (blacklist) những định dạng file không phù hợp.
+
+Để đảm bảo chất lượng dữ liệu và tránh xử lý những trang không mang giá trị thông tin, hệ thống tích hợp thêm cơ chế lọc nội dung. Các trang có độ dài ngắn dưới ngưỡng (mặc định là 100 ký tự), chứa quá nhiều liên kết so với lượng văn bản, hoặc được xác định là trang lỗi sẽ bị loại bỏ khỏi quá trình. Bên cạnh đó, khi làm việc với các trang web đa ngôn ngữ, hệ thống có thể phát hiện và bỏ qua các phiên bản tiếng Anh trùng lặp, nhằm tập trung vào ngôn ngữ chính mà người dùng quan tâm.
+
+Việc xử lý nội dung web cũng đòi hỏi sự chú ý đặc biệt đến vấn đề mã hóa ký tự và ký hiệu đặc biệt. Các trang web có thể sử dụng chuẩn mã hóa khác nhau, từ UTF-8 phổ biến đến các bảng mã khu vực ít thông dụng hơn. Hệ thống sẽ tự động phát hiện loại mã hóa dựa trên thông tin trong phần tiêu đề (header) của HTTP hoặc thẻ \texttt{<meta>} trong HTML, đồng thời có cơ chế dự phòng (fallback) trong trường hợp mã hóa không được khai báo chính xác. Ngoài ra, các mã ký tự HTML (HTML entities) như \texttt{\&amp;} hay \texttt{\&quot;} cũng được chuyển đổi về ký tự gốc nhằm đảm bảo tính nhất quán trong dữ liệu lưu trữ.

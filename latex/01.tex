@@ -5,7 +5,7 @@
 
 \section{Đặt vấn đề}
 
-Trong bối cảnh thông tin số phát triển mạnh mẽ, việc quản lý và truy xuất thông tin từ một khối lượng tài liệu khổng lồ đã trở thành thách thức lớn và là nhiệm vụ quan trọng cần được giải quyết đối với nhiều tổ chức và cá nhân. Người dùng thường phải xử lý hàng trăm, thậm chí hàng nghìn tài liệu ở nhiều định dạng khác nhau như PDF, Word, Excel hay các nội dung phân tán trên nhiều trang web, nhưng lại thiếu các công cụ đủ thông minh để tìm kiếm và khai thác thông tin một cách hiệu quả. 
+Trong bối cảnh thông tin số phát triển mạnh mẽ, việc quản lý và truy xuất thông tin từ một khối lượng tài liệu khổng lồ đã trở thành thách thức lớn và là nhiệm vụ quan trọng cần được giải quyết đối với nhiều tổ chức và cá nhân. Người dùng thường phải xử lý hàng trăm, thậm chí hàng nghìn tài liệu ở nhiều định dạng khác nhau như PDF, Word, Excel hay các nội dung phân tán trên nhiều trang web, nhưng lại thiếu các công cụ đủ thông minh để tìm kiếm và khai thác thông tin một cách hiệu quả.
 
 Các phương pháp truyền thống, chẳng hạn như đọc thủ công từng tài liệu hoặc sử dụng tìm kiếm từ khóa đơn giản (Ctrl+F), bộc lộ nhiều hạn chế. Chúng thường thiếu khả năng hiểu ngữ cảnh và ý nghĩa ngữ nghĩa của câu hỏi, khiến kết quả tìm kiếm có độ chính xác thấp. Đồng thời, người dùng phải mất nhiều thời gian mở và rà soát từng tài liệu, đặc biệt khi truy vấn liên quan đến những câu hỏi phức tạp đòi hỏi tổng hợp thông tin từ nhiều nguồn. Ngoài ra, việc xử lý tài liệu đa ngôn ngữ (bao gồm tiếng Việt) còn gặp nhiều rào cản về mặt kỹ thuật.
 
@@ -13,7 +13,7 @@ Trước những khó khăn trên, nhu cầu về một hệ thống chatbot th�
 
 \section{Tổng quan về các công nghệ giải quyết}
 
-Hiện nay, có hai hướng tiếp cận chính được áp dụng rộng rãi trong việc xây dựng hệ thống hỏi đáp thông minh: \emph{Mô hình ngôn ngữ lớn} (Large Language Model -- LLM) và \emph{Tạo sinh dựa trên truy xuất tăng cường} (Retrieval-Augmented Generation -- RAG).
+Hiện nay, có hai hướng tiếp cận chính được áp dụng rộng rãi trong việc xây dựng hệ thống hỏi đáp thông minh: {Mô hình ngôn ngữ lớn} (\emph{Large Language Model} -- LLM) và {Tạo sinh dựa trên truy xuất tăng cường} (\emph{Retrieval-Augmented Generation} -- RAG).
 
 \subsection{Large Language Model (LLM)}
 
@@ -23,7 +23,7 @@ Tuy nhiên, LLM thuần túy cũng tồn tại những hạn chế đáng kể. 
 
 \subsection{Retrieval-Augmented Generation (RAG)}
 
-RAG là kiến trúc kết hợp giữa khả năng tìm kiếm thông tin (retrieval) và khả năng sinh ngôn ngữ (generation) của LLM. Thay vì chỉ dựa vào kiến thức đã được huấn luyện sẵn, RAG bổ sung thông tin từ cơ sở dữ liệu bên ngoài vào quá trình sinh câu trả lời. Nhờ đó, hệ thống vừa tận dụng được khả năng xử lý ngôn ngữ của LLM, vừa đảm bảo nội dung phản hồi dựa trên dữ liệu cụ thể.
+RAG là kiến trúc kết hợp giữa khả năng tìm kiếm thông tin và khả năng sinh ngôn ngữ của LLM. Thay vì chỉ dựa vào kiến thức đã được huấn luyện sẵn, RAG bổ sung thông tin từ cơ sở dữ liệu bên ngoài vào quá trình sinh câu trả lời. Nhờ đó, hệ thống vừa tận dụng được khả năng xử lý ngôn ngữ của LLM, vừa đảm bảo nội dung phản hồi dựa trên dữ liệu cụ thể.
 
 Ưu điểm nổi bật của RAG nằm ở độ chính xác cao nhờ dựa trực tiếp vào tài liệu nguồn, giúp hỗ trợ truy xuất nguồn gốc thông tin, nâng cao tính minh bạch và khả năng kiểm chứng. Hệ thống có thể dễ dàng cập nhật hoặc bổ sung dữ liệu mới mà không cần huấn luyện lại mô hình, giúp tiết kiệm chi phí triển khai. Đồng thời, kiến trúc này cũng rất linh hoạt, áp dụng được cho nhiều loại tài liệu và lĩnh vực khác nhau, đồng thời đảm bảo bảo mật khi dữ liệu có thể được lưu trữ và xử lý cục bộ.
 
