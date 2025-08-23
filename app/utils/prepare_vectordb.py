@@ -256,3 +256,107 @@ def get_vectorstore(
     save_text_chunks(unique_chunks, chunks_dir=chunks_dir, overwrite=False)
 
     return vectordb
+
+
+# --- User-specific Constants ---
+def get_user_dirs(username: str):
+    """Get user-specific directory paths"""
+    user_base = f"users/{username}"
+    return {
+        'docs': f"{user_base}/docs",
+        'chunks': f"{user_base}/chunks",
+        'vectordb': f"{user_base}/vector_db"
+    }
+
+def ensure_user_dirs(username: str):
+    """Create user-specific directories"""
+    dirs = get_user_dirs(username)
+    for dir_path in dirs.values():
+        os.makedirs(dir_path, exist_ok=True)
+    return dirs
+
+def has_new_files_user(username: str, current_files: List[str]) -> bool:
+    """Check for new files in user's directory"""
+    dirs = get_user_dirs(username)
+    cache_path = os.path.join(dirs['vectordb'], "files.txt")
+
+    if not os.path.exists(cache_path):
+        return True
+
+    with open(cache_path, "r", encoding="utf-8") as f:
+        cached_files = set(line.strip() for line in f.readlines())
+    return set(current_files) != cached_files
+
+def get_vectorstore_user(
+        username: str,
+        file_list: List[str]
+) -> 'Chroma':
+    """
+    Get user-specific vectorstore
+    """
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    from langchain_community.vectorstores import Chroma
+
+    # Ensure user directories exist
+    dirs = ensure_user_dirs(username)
+
+    embedding = GoogleGenerativeAIEmbeddings(
+        model="models/embedding-001",
+        google_api_key=os.getenv('GEMINI_API_KEY')
+    )
+
+    # Load or create user-specific vectorstore
+    vectordb = Chroma(
+        persist_directory=dirs['vectordb'],
+        embedding_function=embedding
+    )
+
+    # Load previously embedded file list
+    cache_path = os.path.join(dirs['vectordb'], "files.txt")
+    prev_files = set()
+    if os.path.exists(cache_path):
+        with open(cache_path, "r", encoding="utf-8") as f:
+            prev_files = set(line.strip() for line in f)
+
+    # Filter new files
+    new_files = [f for f in file_list if f not in prev_files]
+    if not new_files:
+        return vectordb
+
+    st.info(f"🆕 Processing {len(new_files)} new files for user: {username}")
+
+    # Extract text from new files
+    docs = extract_text(new_files, dirs['docs'])
+    chunks = get_text_chunks(docs)
+
+    # Deduplicate by chunk content hash
+    seen_hashes = set()
+    unique_chunks = []
+    for chunk in chunks:
+        content_hash = hash_text(chunk.page_content)
+        if content_hash not in seen_hashes:
+            seen_hashes.add(content_hash)
+            unique_chunks.append(chunk)
+
+    # Add only unique chunks
+    if unique_chunks:
+        vectordb.add_documents(unique_chunks)
+        vectordb.persist()
+        st.success(f"✅ Added {len(unique_chunks)} unique chunks for {username}")
+
+    # Update file cache
+    with open(cache_path, "a", encoding="utf-8") as f:
+        for fname in new_files:
+            f.write(fname + "\n")
+
+    # Save chunks for inspection
+    save_text_chunks(unique_chunks, chunks_dir=dirs['chunks'], overwrite=False)
+
+    return vectordb
+
+def cleanup_user_data(username: str):
+    """Clean up all user data"""
+    user_base = f"users/{username}"
+    if os.path.exists(user_base):
+        shutil.rmtree(user_base)
+        st.success(f"🗑️ Cleaned up all data for user: {username}")

@@ -8,9 +8,104 @@ from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 from typing import List, Tuple, Optional, Set
+from .prepare_vectordb import get_user_dirs, ensure_user_dirs
 
 # Add a global variable to track first scan
 first_scan_done = False
+
+def save_url_to_vectordb_user(
+        username: str,
+        url: str,
+        existing_docs: List[str],
+        crawl_links: bool = False,
+        page_limit: int = 50,
+        _visited: Optional[Set[str]] = None,
+        _crawl_count: Optional[list] = None
+) -> Tuple[str, str]:
+    """
+    Fetch a URL and save it to user-specific docs folder
+    """
+    # Get user-specific docs directory
+    dirs = ensure_user_dirs(username)
+    docs_dir = dirs['docs']
+
+    # Initialize for the first call in a crawl session
+    if _visited is None:
+        _visited = set()
+    if _crawl_count is None:
+        _crawl_count = [0, False]
+
+    # Stop if page limit is reached during a crawl
+    if crawl_links and _crawl_count[0] >= page_limit:
+        if not _crawl_count[1]:
+            st.info(f"Page limit ({page_limit}) reached for user {username}")
+            _crawl_count[1] = True
+        return "", ""
+
+    if url in _visited:
+        return "", ""
+
+    _visited.add(url)
+
+    if crawl_links:
+        _crawl_count[0] += 1
+        st.info(f"Processing page {_crawl_count[0]}/{page_limit} for {username}: {url}")
+
+    # Fetch URL content (same as before)
+    try:
+        resp = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; TNTBot/1.0)"},
+            timeout=10
+        )
+        resp.raise_for_status()
+    except Exception as e:
+        st.error(f"❌ Failed to fetch {url} for {username}: {e}")
+        return "", ""
+
+    # Process content (same logic as before, but save to user's docs_dir)
+    parsed = urlparse(url)
+    base = slugify(parsed.netloc + parsed.path)
+    ctype = resp.headers.get("Content-Type", "").lower()
+    is_pdf = url.lower().endswith(".pdf") or "application/pdf" in ctype
+
+    if is_pdf:
+        fname = f"{base}.pdf"
+        if fname in existing_docs:
+            return "", "pdf"
+        path = os.path.join(docs_dir, fname)
+        with open(path, "wb") as f:
+            f.write(resp.content)
+        st.success(f"✅ Saved PDF for {username}: {url}")
+        existing_docs.append(fname)
+        return fname, "pdf"
+
+    # HTML processing (same as before)
+    encoding = resp.encoding if resp.encoding else 'utf-8'
+    html_text = resp.content.decode(encoding, errors='replace')
+    text = extract_all_visible_text(html_text)
+
+    if not text:
+        return "", "html"
+
+    fname = f"{base}.html.txt"
+    if fname in existing_docs:
+        return "", "html"
+    path = os.path.join(docs_dir, fname)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+    st.success(f"✅ Saved HTML for {username}: {url}")
+    existing_docs.append(fname)
+
+    # Recursive crawling for same domain
+    if crawl_links:
+        links = extract_same_domain_links(html_text, url)
+        for link in links:
+            save_url_to_vectordb_user(
+                username, link, existing_docs, crawl_links, page_limit, _visited, _crawl_count
+            )
+
+    return fname, "html"
 
 def slugify(text: str) -> str:
     """Generate a filesystem-safe slug from the given text."""

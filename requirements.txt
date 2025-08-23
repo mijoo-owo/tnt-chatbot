@@ -22,3 +22,6 @@ pymupdf
 langchain-google-genai
 google-generativeai
 nest-asyncio
+streamlit-authenticator==0.2.3
+bcrypt
+pyyaml
