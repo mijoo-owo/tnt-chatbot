@@ -86,6 +86,21 @@ def ocr_pdf_with_paddleocr(pdf_path, lang='vi'):  # Vietnamese support
         return [Document(page_content="\n\n".join(all_text), metadata={"source": pdf_path})]
     return []
 
+
+def load_text_from_txt_file(filepath):
+    encodings = ['utf-8', 'utf-16', 'cp1252', 'iso-8859-1', 'gbk']
+    for encoding in encodings:
+        try:
+            with open(filepath, 'r', encoding=encoding) as f:
+                content = f.read()
+            return [Document(page_content=content, metadata={"source": filepath})]
+        except (UnicodeDecodeError, LookupError):
+            continue
+
+    st.error(f"Cannot decode text file: {filepath}")
+    return []
+
+
 def extract_text(file_list: List[str], docs_dir: str = DEFAULT_DOCS_DIR):
     docs = []
     for fn in file_list:
@@ -104,7 +119,7 @@ def extract_text(file_list: List[str], docs_dir: str = DEFAULT_DOCS_DIR):
                 else:
                     docs.extend(loaded)
             elif fn.lower().endswith(".txt"):
-                docs.extend(TextLoader(path, encoding="utf-8").load())
+                docs.extend(load_text_from_txt_file(path))
             elif fn.lower().endswith(".docx"):
                 docs.extend(Docx2txtLoader(path).load())
             elif fn.lower().endswith(".doc"):
