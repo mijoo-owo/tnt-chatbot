@@ -45,19 +45,6 @@ Mô tả từng khối chức năng và vai trò trong kiến trúc RAG:
 - **Định dạng khác**: Word (python-docx), Excel (openpyxl, xlrd), tệp văn bản (xử lý encoding).
 - **Dữ liệu web**: Sử dụng BeautifulSoup để trích xuất nội dung, loại bỏ thành phần không liên quan (navigation, quảng cáo) và áp dụng chiến lược crawling cùng miền.
 
-[//]: # (### 2.4 Lưu trữ và tìm kiếm ngữ nghĩa)
-
-[//]: # (- **Lựa chọn ChromaDB**: So sánh với Pinecone, Weaviate; ưu điểm về lưu trữ bền vững và cập nhật gia tăng.)
-
-[//]: # (- **Embedding và truy vấn**: Sử dụng OpenAI text-embedding-3-large, so sánh với sentence-transformers, áp dụng cosine similarity để tìm kiếm văn bản liên quan.)
-
-[//]: # ()
-[//]: # (### 2.5 Xử lý văn bản trước khi lưu trữ)
-
-[//]: # (- **Chiến lược chia đoạn &#40;Text Chunking&#41;**: Tối ưu kích thước đoạn &#40;8000 ký tự&#41;, xử lý chồng lấn &#40;800 ký tự&#41;, so sánh chia đoạn theo kích thước cố định và chia đoạn ngữ nghĩa.)
-
-[//]: # (- **Loại bỏ trùng lặp và kiểm soát chất lượng**: Sử dụng hash để phát hiện trùng lặp, lọc nội dung kém chất lượng, quản lý metadata phục vụ truy vấn.)
-
 ### 2.4 Xây dựng và quản lý cơ sở dữ liệu vector
 
 #### 2.4.1 Tiền xử lý và phân đoạn văn bản
@@ -80,14 +67,13 @@ Mô tả từng khối chức năng và vai trò trong kiến trúc RAG:
 - Optimization techniques (HNSW, IVF)
 - Ranking và filtering
 
-### 2.6 Tích hợp với mô hình ngôn ngữ
+### 2.5 Tích hợp với mô hình ngôn ngữ
 - **Chọn mô hình**: GPT-4o-mini, lý do lựa chọn, quản lý cửa sổ ngữ cảnh.
 - **Kỹ thuật prompt**: Thiết kế prompt cho RAG để tối ưu tính chính xác và ngữ cảnh trả lời.
 - **Streaming**: Sinh câu trả lời theo thời gian thực để cải thiện trải nghiệm người dùng, kết hợp xử lý lỗi.
 
-### 2.7 Quản lý phiên làm việc và bộ nhớ
-- **Quản lý trạng thái**: Sử dụng Streamlit Session State để lưu lịch sử trò chuyện, theo dõi tài liệu đã tải.
-- **Quản lý ngữ cảnh**: Giới hạn 10 lượt trao đổi, tối ưu xử lý tài liệu nhằm giảm tải bộ nhớ và chi phí.
+### 2.6 Giao diện người dùng
+- ???
 
 ---
 

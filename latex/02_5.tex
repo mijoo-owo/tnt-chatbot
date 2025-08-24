@@ -1,0 +1,35 @@
+\section{Tích hợp với mô hình ngôn ngữ}
+
+\subsection{Lựa chọn mô hình và quản lý API}
+
+Trong giai đoạn sinh câu trả lời của quy trình RAG, việc lựa chọn mô hình ngôn ngữ phù hợp đóng vai trò quyết định đối với chất lượng phản hồi cuối cùng. Hệ thống sử dụng \texttt{gpt-4o-mini} của OpenAI làm mô hình sinh chính, được tích hợp thông qua lớp wrapper \texttt{ChatOpenAI} do thư viện LangChain cung cấp. \texttt{gpt-4o-mini} được lựa chọn dựa trên sự cân bằng tối ưu giữa chất lượng đầu ra, tốc độ xử lý và chi phí vận hành, đặc biệt thích hợp cho các ứng dụng yêu cầu tương tác thời gian thực như chatbot.
+
+So với các phiên bản mạnh mẽ hơn như \texttt{gpt-4} hay \texttt{gpt-4-turbo}, \texttt{gpt-4o-mini} mang lại lợi thế về tốc độ phản hồi và chi phí API thấp hơn đáng kể, trong khi vẫn duy trì khả năng hiểu ngữ cảnh và sinh văn bản với chất lượng cao. Đây là yếu tố đặc biệt quan trọng trong bối cảnh ứng dụng chatbot, nơi người dùng mong đợi phản hồi tức thì và có thể thực hiện nhiều truy vấn liên tiếp trong cùng một phiên làm việc.
+
+Tham số nhiệt độ (\texttt{temperature}) trong mô hình ngôn ngữ điều khiển mức độ ngẫu nhiên khi lựa chọn từ tiếp theo trong quá trình sinh văn bản. Về nguyên tắc, mô hình dự đoán xác suất cho nhiều lựa chọn khả thi, sau đó chọn ra một từ dựa trên phân phối này. Khi nhiệt độ ở mức thấp (gần 0), mô hình có xu hướng chọn các từ có xác suất cao nhất, nhờ đó tạo ra phản hồi ổn định và nhất quán. Ngược lại, khi nhiệt độ cao (trên 0.8), phân phối xác suất trở nên ``phẳng'' hơn, cho phép mô hình chọn các từ ít chắc chắn hơn, từ đó tăng tính đa dạng và sáng tạo nhưng đồng thời cũng làm giảm độ tin cậy. Do yêu cầu ưu tiên tính chính xác và kiểm chứng trong bối cảnh ứng dụng RAG, hệ thống lựa chọn mức nhiệt độ thấp (0.1).
+
+Mô hình ngôn ngữ cũng sử dụng chung khóa API với mô hình embedding, được quản lý tập trung thông qua file \texttt{.env}. Cách tổ chức này giúp đơn giản hóa cấu hình hệ thống, chỉ cần duy trì một nguồn định nghĩa duy nhất cho thông tin nhạy cảm. Đồng thời, việc chia sẻ khóa API giữa các thành phần đảm bảo tính nhất quán trong quản lý bảo mật, tránh tình trạng phân tán hoặc trùng lặp thông tin khi triển khai ứng dụng.
+
+\subsection{Thiết kế truy vấn}
+
+Thiết kế truy vấn \emph{(Prompt engineering)} giữ vai trò quan trọng trong việc tối ưu hóa chất lượng phản hồi của hệ thống RAG. Khác với việc sử dụng LLM thuần túy, truy vấn trong RAG cần được thiết kế để hướng dẫn mô hình khai thác thông tin từ ngữ cảnh đã được truy xuất một cách hiệu quả. Cách tiếp cận này giúp giảm sự phụ thuộc vào kho kiến thức huấn luyện vốn có thể thiếu chính xác hoặc đã lỗi thời, đồng thời đảm bảo rằng câu trả lời phản ánh trung thực nội dung trong tài liệu nguồn.
+
+Cấu trúc truy vấn được xây dựng bằng module \texttt{ChatPromptTemplate}, gồm ba thành phần chính. Đầu tiên là \emph{system prompt}, thiết lập vai trò của mô hình và chèn trực tiếp ngữ cảnh truy xuất \texttt{\{context\}}, giúp mô hình ưu tiên sử dụng thông tin từ cơ sở dữ liệu thay vì kiến thức huấn luyện sẵn. Tiếp theo là lớp \texttt{MessagesPlaceholder} cho lịch sử trò chuyện, đảm bảo mạch hội thoại được duy trì và phản hồi phù hợp với ngữ cảnh trước đó. Cuối cùng là đầu vào từ người dùng \texttt{\{input\}}, hoàn thiện cấu trúc truy vấn để mô hình có thể tạo ra câu trả lời chính xác và gắn kết.
+
+Một điểm quan trọng trong thiết kế truy vấn là khả năng xử lý trong tình huống thiếu thông tin. Thay vì để mô hình suy đoán, hệ thống được hướng dẫn ưu tiên yêu cầu người dùng bổ sung dữ liệu khi không có đủ ngữ cảnh để trả lời. Cách tiếp cận này giúp duy trì tính chính xác và minh bạch, đồng thời hạn chế hiện tượng hallucination.
+
+\subsection{Quản lý cửa sổ ngữ cảnh}
+
+Một trong những thách thức kỹ thuật được đặt ra khi triển khai mô hình RAG là việc quản lý hiệu quả cửa sổ ngữ cảnh \emph{(context window)} của mô hình ngôn ngữ. \texttt{gpt-4o-mini} có giới hạn nhất định về dung lượng ngữ cảnh, buộc hệ thống phải cân đối giữa việc cung cấp đủ thông tin liên quan và tránh vượt quá khả năng xử lý của mô hình. Trong thực tế, cửa sổ ngữ cảnh thường bao gồm nhiều thành phần: system prompt, lịch sử trò chuyện, các đoạn văn bản được truy xuất và câu hỏi hiện tại của người dùng.
+
+Đối với các đoạn văn bản được truy xuất, hệ thống tận dụng cơ chế sắp xếp theo độ tương đồng đã được mô tả ở phần trước để đảm bảo những thông tin quan trọng nhất được ưu tiên đưa vào ngữ cảnh. Cách tiếp cận này giúp tối ưu hóa chất lượng thông tin được cung cấp cho mô hình, đồng thời duy trì hiệu suất xử lý ổn định trong giới hạn cửa sổ ngữ cảnh cho phép.
+
+Đối với lịch sử trò chuyện, hệ thống triển khai cơ chế quản lý động với giới hạn tối đa 40 tin nhắn -- tương đương với 20 lượt trò chuyện, trong đó mỗi lượt bao gồm một tin nhắn của người dùng và phản hồi tương ứng của chatbot. Khi số lượng vượt quá ngưỡng này, các tin nhắn cũ nhất sẽ bị loại bỏ khỏi cửa sổ ngữ cảnh theo nguyên tắc FIFO (First In, First Out), đảm bảo rằng mô hình có thể truy cập những trao đổi gần nhất. Điều này vừa giúp duy trì tính liên tục của cuộc hội thoại, vừa tránh tình trạng cửa sổ ngữ cảnh bị quá tải bởi những thông tin cũ có thể không còn liên quan đến luồng thảo luận hiện tại.
+
+\subsection{Token streaming}
+
+Để nâng cao trải nghiệm tương tác, hệ thống tích hợp tính năng \emph{token streaming}, cho phép hiển thị câu trả lời theo thời gian thực trong khi mô hình đang sinh nội dung. Thay vì chờ đợi toàn bộ phản hồi hoàn tất mới hiển thị, người dùng có thể theo dõi trực tiếp quá trình ``suy nghĩ'' của chatbot, tạo cảm giác tương tác tự nhiên hơn và giảm thiểu thời gian chờ đợi cảm nhận được.
+
+Tính năng streaming được kích hoạt thông qua tham số \texttt{streaming=True} trong cấu hình \texttt{ChatOpenAI}, kết hợp với phương thức \texttt{stream()} của chuỗi truy xuất \emph{(retrieval chain)}. Cơ chế này tạo ra một bộ sinh \emph{(generator)} trả về từng phần nhỏ của phản hồi ngay khi mô hình sinh ra, và được hiển thị trực tiếp trên giao diện Streamlit bằng phương thức \texttt{st.write\_stream()}. Cách tiếp cận này đặc biệt hữu ích đối với những câu trả lời dài hoặc phức tạp, khi người dùng có thể bắt đầu đọc và tiếp thu thông tin ngay trong lúc mô hình tiếp tục xử lý phần còn lại.
+
+Để đảm bảo tính ổn định trong quá trình streaming, hệ thống áp dụng cơ chế kiểm soát dữ liệu và xử lý lỗi toàn diện. Nội dung phản hồi được tích lũy tuần tự, nhờ đó lịch sử trò chuyện vẫn được duy trì đầy đủ ngay cả khi xảy ra gián đoạn, đồng thời hạn chế rủi ro do dữ liệu không đúng định dạng.
