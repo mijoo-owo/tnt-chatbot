@@ -51,12 +51,29 @@ def get_user_documents(username: str):
 
 
 def delete_user_document(username: str, filename: str):
-    """Delete specific document for user"""
+    """Delete specific document for user and update cache"""
+    from .prepare_vectordb import get_user_dirs
+
     dirs = get_user_dirs(username)
     file_path = os.path.join(dirs['docs'], filename)
+    cache_path = os.path.join(dirs['vectordb'], "files.txt")
 
     if os.path.exists(file_path):
+        # 1. Xóa file vật lý
         os.remove(file_path)
+
+        # 2. Cập nhật file cache (loại bỏ filename khỏi danh sách)
+        if os.path.exists(cache_path):
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cached_files = [line.strip() for line in f.readlines()]
+
+            # Loại bỏ filename khỏi cache
+            updated_files = [f for f in cached_files if f != filename]
+
+            with open(cache_path, "w", encoding="utf-8") as f:
+                for file in updated_files:
+                    f.write(file + "\n")
+
         st.success(f"🗑️ Deleted {filename} for user {username}")
         return True
     return False

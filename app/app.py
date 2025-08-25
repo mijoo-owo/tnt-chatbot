@@ -21,8 +21,8 @@ class ChatApp:
     """
 
     def __init__(self):
-        st.set_page_config(page_title="PC1 ChatBot")
-        # st.title("PC1 ChatBot")
+        st.set_page_config(page_title="TNT Chatbot")
+        # st.title("TNT Chatbot")
 
         # Initialize authentication
         self.auth = UserAuth()
@@ -44,17 +44,26 @@ class ChatApp:
 
     def render_login_page(self):
         """Render login page"""
-        st.title("🔐 Login to PC1 ChatBot")
+        st.title("🔐 Log in to TNT Chatbot")
 
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            username, auth_status = self.auth.login()
-
-            if auth_status:
-                st.session_state.authentication_status = True
-                st.session_state.username = username
-                st.success(f'Welcome *{username}*')
-                st.rerun()
+            # Tạo form đăng nhập tùy chỉnh
+            with st.form("login_form"):
+                st.subheader("Login")
+                username = st.text_input("Username")
+                password = st.text_input("Password", type="password")
+                # Nút submit với tên tùy chỉnh
+                submitted = st.form_submit_button("Log in")  # Thay đổi tên nút ở đây
+                if submitted:
+                    # Kiểm tra thông tin đăng nhập
+                    if self.auth._verify_credentials(username, password):
+                        st.session_state.authentication_status = True
+                        st.session_state.username = username
+                        st.success(f'Welcome *{username}*')
+                        st.rerun()
+                    else:
+                        st.error('Username or password is incorrect')
 
         # Optional: Registration section for admin
         if st.checkbox("Admin: Register new user"):
@@ -64,10 +73,26 @@ class ChatApp:
         """Render main application for authenticated users"""
         username = st.session_state.username
 
+        # Kiểm tra và hiển thị thông báo upload thành công
+        upload_success_key = f'upload_success_{username}'
+        if upload_success_key in st.session_state:
+            success_data = st.session_state[upload_success_key]
+            for message in success_data['messages']:
+                st.success(message)
+            st.success(f"Successfully processed {success_data['count']} documents!")
+            # Xóa thông báo khỏi session state
+            del st.session_state[upload_success_key]
+
+        # Kiểm tra thông báo từ việc xử lý vectorstore
+        vectorstore_success_key = f'vectorstore_success_{username}'
+        if vectorstore_success_key in st.session_state:
+            st.success(st.session_state[vectorstore_success_key])
+            del st.session_state[vectorstore_success_key]
+
         # Header with user info and logout
         col1, col2 = st.columns([3, 1])
         with col1:
-            st.title(f"PC1 ChatBot 📚")
+            st.title(f"📚 TNT Chatbot")
             st.write(f"Welcome back, **{username}**!")
 
         with col2:
@@ -88,7 +113,39 @@ class ChatApp:
 
             # Show current document count
             user_docs = get_user_documents(username)
-            st.info(f"📊 You have {len(user_docs)} documents")
+            suffix = '' if len(user_docs) == 1 else 's'
+            st.info(f"📊 You have {len(user_docs)} document{suffix}")
+
+            # Thêm phần này để xóa từng tài liệu
+            if user_docs:
+                st.subheader("🗑️ Manage Documents")
+                doc_to_delete = st.selectbox(
+                    "Select document to delete:",
+                    options=[""] + user_docs,
+                    key=f"delete_doc_{username}"
+                )
+
+                if doc_to_delete:
+                    col1, col2 = st.columns([1, 1])
+                    with col1:
+                        if st.button("Delete Document", use_container_width=True, key=f"delete_btn_{username}"):
+                            st.session_state[f"confirm_delete_{username}"] = doc_to_delete
+
+                    with col2:
+                        if f"confirm_delete_{username}" in st.session_state and st.session_state[f"confirm_delete_{username}"] == doc_to_delete:
+                            if st.button("⚠️ Confirm", use_container_width=True, key=f"confirm_btn_{username}"):
+                                from utils.save_docs import delete_user_document
+                                if delete_user_document(username, doc_to_delete):
+                                    # Xóa vectorstore để force rebuild
+                                    user_vectordb_key = f'vectordb_{username}'
+                                    if user_vectordb_key in st.session_state:
+                                        del st.session_state[user_vectordb_key]
+
+                                    # Xóa confirm state
+                                    if f"confirm_delete_{username}" in st.session_state:
+                                        del st.session_state[f"confirm_delete_{username}"]
+
+                                    st.rerun()
 
             uploaded_docs = st.file_uploader(
                 "Upload (.pdf, .txt, .doc, .docx, .xls, .xlsx)",
@@ -214,13 +271,13 @@ class ChatApp:
 
         new_url_inputs = []
         should_rerun = False
-        
+
         for i, url in enumerate(st.session_state.url_inputs):
             col1, col2 = st.columns([10, 1])
             with col1:
                 new_url = st.text_input(
-                    f"URL #{i+1}", 
-                    value=url, 
+                    f"URL #{i+1}",
+                    value=url,
                     key=f"url_{i}"
                 )
                 new_url_inputs.append(new_url)
@@ -228,9 +285,9 @@ class ChatApp:
                 if st.button("❌", key=f"remove_url_{i}"):
                     new_url_inputs.pop(i)
                     should_rerun = True
-        
+
         st.session_state.url_inputs = new_url_inputs
-        
+
         if should_rerun:
             st.rerun()
 

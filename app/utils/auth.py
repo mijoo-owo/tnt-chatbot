@@ -57,6 +57,13 @@ class UserAuth:
             self.config['preauthorized']
         )
 
+    def _verify_credentials(self, username, password):
+        """Verify username and password"""
+        if username in self.config['credentials']['usernames']:
+            stored_password = self.config['credentials']['usernames'][username]['password']
+            return bcrypt.checkpw(password.encode('utf-8'), stored_password.encode('utf-8'))
+        return False
+
     def login(self):
         """Display login form and handle authentication"""
         name, authentication_status, username = self.authenticator.login('Login', 'main')
@@ -74,26 +81,25 @@ class UserAuth:
 
     def logout(self):
         """Handle user logout"""
-        self.authenticator.logout('Logout', 'sidebar')
-        # try:
-        #     self.authenticator.logout('Logout', 'sidebar')
-        #     # Clear session state sau khi logout
-        #     if st.session_state.authentication_status:
-        #         st.session_state.authentication_status = None
-        #         st.session_state.username = None
-        #         st.rerun()
-        # except KeyError:
-        #     # Cookie không tồn tại, force logout bằng cách clear session
-        #     st.session_state.authentication_status = None
-        #     st.session_state.username = None
-        #     st.success("Logged out successfully")
-        #     st.rerun()
-        # except Exception as e:
-        #     # Các lỗi khác
-        #     st.warning(f"Logout warning: {e}")
-        #     st.session_state.authentication_status = None
-        #     st.session_state.username = None
-        #     st.rerun()
+        try:
+            self.authenticator.logout('Log out', 'sidebar')
+            # Clear session state sau khi logout
+            if st.session_state.get('authentication_status') is None:
+                st.session_state.authentication_status = None
+                st.session_state.username = None
+                st.rerun()
+        except KeyError:
+            # Cookie không tồn tại, force logout bằng cách clear session
+            st.session_state.authentication_status = None
+            st.session_state.username = None
+            st.success("Logged out successfully")
+            st.rerun()
+        except Exception as e:
+            # Các lỗi khác, vẫn force logout
+            st.warning(f"Logout warning: {e}")
+            st.session_state.authentication_status = None
+            st.session_state.username = None
+            st.rerun()
 
     def register_new_user(self):
         """Register new user (optional - for admin)"""

@@ -342,7 +342,11 @@ def get_vectorstore_user(
     if unique_chunks:
         vectordb.add_documents(unique_chunks)
         vectordb.persist()
-        st.success(f"✅ Added {len(unique_chunks)} unique chunks for {username}")
+
+        # st.success(f"✅ Added {len(unique_chunks)} unique chunks for {username}")
+
+        # Lưu thông báo vào session state thay vì st.success
+        st.session_state[f'vectorstore_success_{username}'] = f"✅ Added {len(unique_chunks)} unique chunks for {username}"
 
     # Update file cache
     with open(cache_path, "a", encoding="utf-8") as f:
@@ -360,3 +364,22 @@ def cleanup_user_data(username: str):
     if os.path.exists(user_base):
         shutil.rmtree(user_base)
         st.success(f"🗑️ Cleaned up all data for user: {username}")
+
+# def rebuild_user_vectorstore(username: str):
+#     """Rebuild vectorstore from scratch for user"""
+#     dirs = get_user_dirs(username)
+#
+#     # Xóa toàn bộ vectorstore cũ
+#     if os.path.exists(dirs['vectordb']):
+#         shutil.rmtree(dirs['vectordb'])
+#
+#     # Tạo lại thư mục
+#     os.makedirs(dirs['vectordb'], exist_ok=True)
+#
+#     # Lấy danh sách file hiện tại và rebuild
+#     current_files = get_user_documents(username)
+#     if current_files:
+#         return get_vectorstore_user(username, current_files)
+#
+#     return None
+
